@@ -1,0 +1,31 @@
+.forge-commit-ready
+.forge/project-id
+.forge/hook-version
+.forge/changed-files.log
+.claude/hooks/
+
+# Terraform
+**/.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+*.tfvars
+*.tfvars.json
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+
+# Security scan artifacts (transient, uploaded to Opsera separately)
+gitleaks-report.json
+grype-report.json
+semgrep-report.json
+checkov-report.json
+hadolint-report.json
+package-leakage-report.json
+*-stderr.txt
+npm-audit.json
+precommit-scan-*.md
