@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Optional local pre-commit feedback (WO-011) — NOT enforced server-side;
+# the real gate is .github/workflows/build-checks.yml, which runs
+# regardless of whether a developer has this hook installed locally.
+#
+# This repo has no root-level package.json (each service/module manages
+# its own), so there's no `husky install` step wiring this up
+# automatically. To activate it locally:
+#   git config core.hooksPath .husky
+set -euo pipefail
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+bash "$REPO_ROOT/scripts/build-checks/validate-commit.sh" --staged
