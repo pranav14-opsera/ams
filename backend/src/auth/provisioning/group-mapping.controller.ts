@@ -2,6 +2,8 @@ import { Body, Controller, Delete, ForbiddenException, Get, Inject, NotFoundExce
 import type { Request } from "express";
 import type { Pool } from "pg";
 import { PG_POOL } from "../../common/database/database.module";
+import { PermissionName } from "../../rbac/rbac.constants";
+import { RequirePermission } from "../../rbac/require-permission.decorator";
 import { AUDIT_SERVICE, type AuditServicePort } from "../../tenants/ports/audit-service.port";
 import { UpsertGroupMappingDto } from "./dto/upsert-group-mapping.dto";
 import { GroupRoleMappingRepository } from "./group-role-mapping.repository";
@@ -15,12 +17,14 @@ export class GroupMappingController {
   ) {}
 
   @Get()
+  @RequirePermission(PermissionName.GROUP_MAPPING_MANAGE)
   async list(@Param("tenantId") tenantId: string, @Req() req: Request) {
     this.requireOwnTenant(tenantId, req);
     return this.repository.list(this.pool, tenantId);
   }
 
   @Post()
+  @RequirePermission(PermissionName.GROUP_MAPPING_MANAGE)
   async upsert(@Param("tenantId") tenantId: string, @Body() dto: UpsertGroupMappingDto, @Req() req: Request) {
     this.requireOwnTenant(tenantId, req);
     const mapping = await this.repository.upsert(this.pool, tenantId, dto.idpGroup, dto.platformRole, dto.priority);
@@ -38,6 +42,7 @@ export class GroupMappingController {
   }
 
   @Delete(":id")
+  @RequirePermission(PermissionName.GROUP_MAPPING_MANAGE)
   async remove(@Param("tenantId") tenantId: string, @Param("id") id: string, @Req() req: Request) {
     this.requireOwnTenant(tenantId, req);
     const deleted = await this.repository.delete(this.pool, tenantId, id);

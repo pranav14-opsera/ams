@@ -2,9 +2,13 @@ import { Body, Controller, Inject, Post, Req, UnauthorizedException } from "@nes
 import type { Request } from "express";
 import type { Pool } from "pg";
 import { PG_POOL } from "../../common/database/database.module";
+import { NoPermissionRequired } from "../../rbac/no-permission-required.decorator";
 import { VerifyMfaDto } from "./dto/verify-mfa.dto";
 import { MfaService } from "./mfa.service";
 
+// Self-service: a user enrolling/verifying their OWN MFA is not gated by
+// the WO-023 permission matrix — every authenticated user regardless of
+// role must be able to do this for themselves.
 @Controller("api/v1/auth/mfa")
 export class MfaController {
   constructor(
@@ -13,6 +17,7 @@ export class MfaController {
   ) {}
 
   @Post("enroll")
+  @NoPermissionRequired()
   async enroll(@Req() req: Request) {
     this.requireAuthenticated(req);
     const email = await this.lookupUserEmail(req.actorId!);
@@ -20,6 +25,7 @@ export class MfaController {
   }
 
   @Post("verify")
+  @NoPermissionRequired()
   async verify(@Body() dto: VerifyMfaDto, @Req() req: Request) {
     this.requireAuthenticated(req);
     if (!req.sessionId) {

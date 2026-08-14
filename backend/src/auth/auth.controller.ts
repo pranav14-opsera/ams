@@ -1,5 +1,6 @@
 import { BadRequestException, Body, Controller, Get, Post, Query, Req } from "@nestjs/common";
 import type { Request } from "express";
+import { NoPermissionRequired } from "../rbac/no-permission-required.decorator";
 import { AuthService } from "./auth.service";
 import { computeDeviceFingerprint } from "./token/device-fingerprint";
 import { TokenService } from "./token/token.service";
@@ -24,6 +25,7 @@ export class AuthController {
   ) {}
 
   @Post("saml/callback")
+  @NoPermissionRequired()
   async samlCallback(@Body() body: SamlCallbackDto, @Req() req: Request) {
     if (!body.RelayState) {
       throw new BadRequestException("Missing RelayState (tenant identifier).");
@@ -34,6 +36,7 @@ export class AuthController {
   }
 
   @Get("oidc/callback")
+  @NoPermissionRequired()
   async oidcCallback(@Query("code") code: string, @Query("state") tenantId: string, @Req() req: Request) {
     if (!tenantId) {
       throw new BadRequestException("Missing state (tenant identifier).");
@@ -44,6 +47,7 @@ export class AuthController {
   }
 
   @Post("token/refresh")
+  @NoPermissionRequired()
   async refresh(@Body() body: RefreshTokenDto, @Req() req: Request) {
     if (!body.refresh_token) {
       throw new BadRequestException("Missing refresh_token.");

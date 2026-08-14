@@ -2,6 +2,8 @@ import { Body, Controller, ForbiddenException, Get, Inject, Param, Patch, Req } 
 import type { Request } from "express";
 import type { Pool } from "pg";
 import { PG_POOL } from "../../common/database/database.module";
+import { PermissionName } from "../../rbac/rbac.constants";
+import { RequirePermission } from "../../rbac/require-permission.decorator";
 import { AUDIT_SERVICE, type AuditServicePort } from "../../tenants/ports/audit-service.port";
 import { UpdateSessionPolicyDto } from "./dto/update-session-policy.dto";
 import { DEFAULT_SESSION_POLICY, TenantSessionPolicyRepository } from "./tenant-session-policy.repository";
@@ -15,6 +17,7 @@ export class SessionPolicyController {
   ) {}
 
   @Get()
+  @RequirePermission(PermissionName.TENANT_SESSION_POLICY_CONFIGURE)
   async getPolicy(@Param("tenantId") tenantId: string, @Req() req: Request) {
     this.requireOwnTenant(tenantId, req);
     const policy = await this.policyRepository.findByTenantId(this.pool, tenantId);
@@ -22,6 +25,7 @@ export class SessionPolicyController {
   }
 
   @Patch()
+  @RequirePermission(PermissionName.TENANT_SESSION_POLICY_CONFIGURE)
   async updatePolicy(@Param("tenantId") tenantId: string, @Body() dto: UpdateSessionPolicyDto, @Req() req: Request) {
     this.requireOwnTenant(tenantId, req);
     const policy = await this.policyRepository.upsert(this.pool, tenantId, dto.idleTimeoutSeconds, dto.absoluteTimeoutSeconds);

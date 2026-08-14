@@ -12,6 +12,10 @@ declare module "express-serve-static-core" {
     actorId?: string;
     /** The `sid` claim (WO-019/020) — undefined for a token minted before session support existed, or one that genuinely has no session (there is none today; every token issuance goes through TokenService, which always creates one). */
     sessionId?: string;
+    /** The `roles` claim (WO-019/022) — the caller's JIT-resolved platform role(s), straight off the already-verified JWT. RbacGuard (WO-024) reads this directly rather than re-querying anything. */
+    roles?: string[];
+    /** The `permissions` claim (WO-019/023) — the caller's resolved permission set, baked into the token at mint time from the WO-023 matrix. */
+    permissions?: string[];
   }
 }
 
@@ -87,6 +91,8 @@ export class TenantContextMiddleware implements NestMiddleware {
     req.tenantId = claims.tenant_id;
     req.actorId = claims.sub;
     req.sessionId = typeof claims.sid === "string" ? claims.sid : undefined;
+    req.roles = Array.isArray(claims.roles) ? (claims.roles as string[]) : [];
+    req.permissions = Array.isArray(claims.permissions) ? (claims.permissions as string[]) : [];
 
     res.on("finish", () => {
       const commitOrRollback = res.statusCode >= 500 ? "ROLLBACK" : "COMMIT";

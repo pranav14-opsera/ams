@@ -1,5 +1,7 @@
 import { Controller, ForbiddenException, Get, HttpCode, HttpStatus, Param, Post, Req } from "@nestjs/common";
 import type { Request } from "express";
+import { PermissionName } from "../rbac/rbac.constants";
+import { RequirePermission } from "../rbac/require-permission.decorator";
 import { EncryptionService } from "./encryption.service";
 
 // Scoped the same way TenantsController is: the requesting user's own
@@ -13,6 +15,7 @@ export class EncryptionController {
   constructor(private readonly encryptionService: EncryptionService) {}
 
   @Get("status")
+  @RequirePermission(PermissionName.TENANT_SETTINGS_MANAGE)
   async getStatus(@Param("id") id: string, @Req() req: Request) {
     this.requireOwnTenant(id, req);
     return this.encryptionService.getStatus(id);
@@ -20,6 +23,7 @@ export class EncryptionController {
 
   @Post("rotate")
   @HttpCode(HttpStatus.OK)
+  @RequirePermission(PermissionName.TENANT_SETTINGS_MANAGE)
   async rotate(@Param("id") id: string, @Req() req: Request) {
     this.requireOwnTenant(id, req);
     return this.encryptionService.rotate(id, req.actorId ?? null);
@@ -27,6 +31,7 @@ export class EncryptionController {
 
   @Post("schedule-deletion")
   @HttpCode(HttpStatus.OK)
+  @RequirePermission(PermissionName.TENANT_SETTINGS_MANAGE)
   async scheduleDeletion(@Param("id") id: string, @Req() req: Request) {
     this.requireOwnTenant(id, req);
     return this.encryptionService.scheduleDeletion(id, req.actorId ?? null);
@@ -34,6 +39,7 @@ export class EncryptionController {
 
   @Post("cancel-deletion")
   @HttpCode(HttpStatus.OK)
+  @RequirePermission(PermissionName.TENANT_SETTINGS_MANAGE)
   async cancelDeletion(@Param("id") id: string, @Req() req: Request) {
     this.requireOwnTenant(id, req);
     return this.encryptionService.cancelDeletion(id, req.actorId ?? null);

@@ -1,4 +1,5 @@
 import { Controller, Get } from "@nestjs/common";
+import { NoPermissionRequired } from "./rbac/no-permission-required.decorator";
 
 // Matches the health-check path convention every service on this platform
 // uses (see infrastructure/terraform/kubernetes' Helm chart base, WO-001)
@@ -6,11 +7,13 @@ import { Controller, Get } from "@nestjs/common";
 @Controller("health")
 export class HealthController {
   @Get("live")
+  @NoPermissionRequired()
   live(): { status: "ok" } {
     return { status: "ok" };
   }
 
   @Get("ready")
+  @NoPermissionRequired()
   ready(): { status: "ok" } {
     return { status: "ok" };
   }
