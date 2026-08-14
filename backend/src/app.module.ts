@@ -5,10 +5,11 @@ import { JWT_VERIFIER } from "./common/jwt/jwt-verifier.port";
 import { Rs256JwtVerifier } from "./common/jwt/rs256-jwt-verifier.service";
 import { TenantContextMiddleware } from "./common/tenant-context.middleware";
 import { HealthController } from "./health.controller";
+import { PhiScrubberModule } from "./phi-scrubber/phi-scrubber.module";
 import { TenantsModule } from "./tenants/tenants.module";
 
 @Module({
-  imports: [DatabaseModule, ClassificationModule, TenantsModule],
+  imports: [DatabaseModule, ClassificationModule, PhiScrubberModule, TenantsModule],
   controllers: [HealthController],
   providers: [
     {

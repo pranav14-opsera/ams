@@ -1,0 +1,46 @@
+{
+  "field_name_matches": [
+    { "input": { "patient_id": "12345" }, "expected": { "patient_id": "[MASKED]" } },
+    { "input": { "patientName": "Jane Doe" }, "expected": { "patientName": "[MASKED]" } },
+    { "input": { "ssn": "123-45-6789" }, "expected": { "ssn": "[MASKED]" } },
+    { "input": { "mrn": "AB1234567" }, "expected": { "mrn": "[MASKED]" } },
+    { "input": { "diagnosis": "hypertension" }, "expected": { "diagnosis": "[MASKED]" } },
+    { "input": { "dob": "1990-01-01" }, "expected": { "dob": "[MASKED]" } },
+    { "input": { "date_of_birth": "01/01/1990" }, "expected": { "date_of_birth": "[MASKED]" } },
+    { "input": { "medical_record_number": "MRN00012345" }, "expected": { "medical_record_number": "[MASKED]" } }
+  ],
+  "value_pattern_matches_regardless_of_field_name": [
+    { "input": { "note": "123-45-6789" }, "expected": { "note": "[MASKED]" } },
+    { "input": { "misc_field": "1990-01-01" }, "expected": { "misc_field": "[MASKED]" } }
+  ],
+  "non_phi_passes_through_unchanged": [
+    { "input": { "agent_name": "billing-agent", "framework": "langchain" }, "expected": { "agent_name": "billing-agent", "framework": "langchain" } },
+    { "input": { "amount": 42.5, "currency": "usd" }, "expected": { "amount": 42.5, "currency": "usd" } }
+  ],
+  "nested_object": [
+    {
+      "input": { "encounter": { "patient_id": "12345", "notes": "routine visit" } },
+      "expected": { "encounter": { "patient_id": "[MASKED]", "notes": "routine visit" } }
+    }
+  ],
+  "array_of_objects": [
+    {
+      "input": { "encounters": [{ "patient_id": "111" }, { "patient_id": "222" }] },
+      "expected": { "encounters": [{ "patient_id": "[MASKED]" }, { "patient_id": "[MASKED]" }] }
+    }
+  ],
+  "mixed_phi_and_non_phi": [
+    {
+      "input": { "agent_name": "intake-agent", "ssn": "123-45-6789", "team": "clinical", "diagnosis": "flu" },
+      "expected": { "agent_name": "intake-agent", "ssn": "[MASKED]", "team": "clinical", "diagnosis": "[MASKED]" }
+    }
+  ],
+  "edge_cases": [
+    { "case": "empty object", "input": {}, "expected": {} },
+    { "case": "null value for a PHI-named field is still masked", "input": { "patient_id": null }, "expected": { "patient_id": "[MASKED]" } },
+    { "case": "number value for a PHI-named field is still masked", "input": { "patient_id": 12345 }, "expected": { "patient_id": "[MASKED]" } }
+  ],
+  "unstructured_log_text": [
+    { "input": "Processing request for patient with SSN 123-45-6789", "expectedContains": "[MASKED]", "expectedNotContains": "123-45-6789" }
+  ]
+}
