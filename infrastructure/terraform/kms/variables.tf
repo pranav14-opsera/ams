@@ -58,6 +58,12 @@ variable "jwt_signing_key_spec" {
   default     = "RSA_2048"
 }
 
+variable "image_signing_pipeline_role_arn" {
+  description = "IAM role ARN of the CI/CD pipeline service account permitted to sign container images with the image-signing KMS key (WO-012). Empty string means no signing principal is granted yet (e.g. before the pipeline's own role exists) — verification-only access is still granted account-wide."
+  type        = string
+  default     = ""
+}
+
 variable "jwt_rotation_schedule_expression" {
   description = "EventBridge schedule expression for JWT signing key rotation."
   type        = string

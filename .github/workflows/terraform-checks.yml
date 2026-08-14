@@ -31,6 +31,7 @@ jobs:
           - infrastructure/terraform/database/postgresql
           - infrastructure/terraform/cache/redis
           - infrastructure/terraform/messaging/kafka
+          - infrastructure/terraform/ecr
     steps:
       - uses: actions/checkout@v4
 
