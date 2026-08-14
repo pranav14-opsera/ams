@@ -1,7 +1,21 @@
 # Forge Shipping Engine pipeline (WO-007)
 
 `pipeline.yaml` is the pipeline's source of truth: source → build → scan
-(placeholder, WO-008/WO-009) → push → gate → deploy (placeholder, WO-010).
+(gitleaks/semgrep/grype/snyk/sonarqube — WO-008; axe-core — WO-009) →
+push → gate → deploy (placeholder, WO-010).
+
+## Accessibility scanning (WO-009)
+
+`scan-axe-core` runs axe-core (WCAG 2.1 AA rules) against every discovered
+Next.js route at 3 viewports (375/768/1280px), realized in
+`.github/workflows/accessibility-scan.yml`. Critical violations fail the
+job; serious violations are reported (`frontend/axe-report.json`, 90-day
+artifact retention) but don't block, matching the acceptance criteria's
+configurable severity threshold. Verified for real, not just configured:
+the scanner caught a genuine missing-`<title>` finding on the current
+placeholder page (fixed via `app/layout.tsx`'s `metadata` export) and,
+against a deliberately broken test page, correctly flagged `image-alt` and
+`label` as critical and `color-contrast`/`html-has-lang` as serious.
 
 ## Connector gap — disclosed, not worked around
 
