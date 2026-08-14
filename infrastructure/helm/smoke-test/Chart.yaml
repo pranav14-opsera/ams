@@ -1,0 +1,10 @@
+apiVersion: v2
+name: smoke-test
+description: >-
+  Deploys a minimal echo pod into each target namespace, waits for it to pass
+  its health checks, verifies namespace NetworkPolicy enforcement via a Job,
+  then relies on `helm uninstall` to clean everything up. Used in CI to
+  validate WO-001's acceptance criteria after every `terraform apply`.
+type: application
+version: 0.1.0
+appVersion: "1.0.0"

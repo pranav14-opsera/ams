@@ -1,0 +1,7 @@
+# Copy to backend.hcl (gitignored) and fill in the values output by the
+# bootstrap module, then run: terraform init -backend-config=backend.hcl
+bucket         = "ams-terraform-state-<suffix>"
+key            = "kubernetes/terraform.tfstate"
+region         = "<aws-region>"
+dynamodb_table = "ams-terraform-locks"
+encrypt        = true
