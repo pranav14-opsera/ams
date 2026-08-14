@@ -200,3 +200,45 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+# --- API Gateway (WO-026) ---------------------------------------------------
+
+variable "tls_admin_email" {
+  description = "Contact email registered with the ACME (Let's Encrypt) account that issues the gateway's public-facing TLS certificate."
+  type        = string
+  default     = "platform-oncall@ams.example.com"
+}
+
+variable "gateway_hostname" {
+  description = "Public DNS hostname the API gateway's Ingress is issued a TLS certificate for and routes traffic on."
+  type        = string
+  default     = "api.ams.example.com"
+}
+
+# path prefix -> which bounded-context namespace/service currently serves
+# it. Every group routes to the SAME single "ams-backend" service today
+# (this platform is presently one NestJS monolith, not yet split into
+# per-bounded-context microservices) — this map is what becomes a real
+# multi-service routing table as each bounded context's own service is
+# built out, without any Ingress-resource restructuring later.
+variable "gateway_route_backends" {
+  description = "Path-prefix routing table: which namespace/service/port currently serves each API path group."
+  type = map(object({
+    namespace = string
+    service   = string
+    port      = number
+  }))
+  default = {
+    "/api/v1/agents"     = { namespace = "agent-management", service = "ams-backend", port = 80 }
+    "/api/v1/credits"    = { namespace = "financial", service = "ams-backend", port = 80 }
+    "/api/v1/governance" = { namespace = "governance", service = "ams-backend", port = 80 }
+    "/api/v1/audit"      = { namespace = "compliance", service = "ams-backend", port = 80 }
+    "/api/v1/auth"       = { namespace = "identity-access", service = "ams-backend", port = 80 }
+    "/api/v1/workflows"  = { namespace = "agent-management", service = "ams-backend", port = 80 }
+    "/api/v1/rbac"       = { namespace = "identity-access", service = "ams-backend", port = 80 }
+    "/api/v1/tenants"    = { namespace = "identity-access", service = "ams-backend", port = 80 }
+    "/scim/v2"           = { namespace = "identity-access", service = "ams-backend", port = 80 }
+    "/adapters"          = { namespace = "agent-management", service = "adapter-gateway", port = 80 }
+    "/health"            = { namespace = "identity-access", service = "ams-backend", port = 80 }
+  }
+}

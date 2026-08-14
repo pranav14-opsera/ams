@@ -72,3 +72,13 @@ output "hpa_cpu_threshold_percent" {
   EOT
   value       = var.hpa_cpu_threshold_percent
 }
+
+output "gateway_hostname" {
+  description = "Public DNS hostname the API gateway (WO-026) is issued a TLS certificate for."
+  value       = var.gateway_hostname
+}
+
+output "gateway_internal_ca_secret_name" {
+  description = "Name of the Secret (in the cert-manager namespace) holding the internal CA used to issue every backend service's mTLS certificate."
+  value       = "ams-internal-ca-secret"
+}
