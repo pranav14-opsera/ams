@@ -24,6 +24,13 @@ paths = [
   # the whole point of BYOK), so gitleaks' generic-api-key entropy
   # heuristic is matching meaningless base64 noise, not a real secret.
   '''backend/test/fixtures/encryption-sample-payloads\.json''',
+  # A real self-signed RSA key pair (openssl req -x509, 100-year expiry),
+  # generated solely to sign SAML assertion fixtures for WO-018's tests —
+  # embedded as string constants (not a raw .pem file, which this repo's
+  # .gitignore deliberately excludes repo-wide, WO-011) — same "committed
+  # throwaway key pair" convention as jwt-fixtures.json above. NEVER use
+  # this key pair outside tests.
+  '''backend/test/fixtures/auth/saml-idp-keypair\.ts''',
 ]
 
 [[rules]]

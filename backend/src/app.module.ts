@@ -1,4 +1,5 @@
 import { MiddlewareConsumer, Module, type NestModule } from "@nestjs/common";
+import { AuthModule } from "./auth/auth.module";
 import { ClassificationModule } from "./classification/classification.module";
 import { DatabaseModule } from "./common/database/database.module";
 import { JWT_VERIFIER } from "./common/jwt/jwt-verifier.port";
@@ -9,7 +10,7 @@ import { PhiScrubberModule } from "./phi-scrubber/phi-scrubber.module";
 import { TenantsModule } from "./tenants/tenants.module";
 
 @Module({
-  imports: [DatabaseModule, ClassificationModule, PhiScrubberModule, TenantsModule],
+  imports: [DatabaseModule, ClassificationModule, PhiScrubberModule, AuthModule, TenantsModule],
   controllers: [HealthController],
   providers: [
     {
@@ -26,7 +27,10 @@ export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     consumer
       .apply(TenantContextMiddleware)
-      .exclude("health/live", "health/ready")
+      // saml/callback and oidc/callback are pre-authentication — no
+      // platform JWT exists yet at the point the browser hits them,
+      // that's the entire purpose of the exchange they perform.
+      .exclude("health/live", "health/ready", "api/v1/auth/saml/callback", "api/v1/auth/oidc/callback")
       .forRoutes("*");
   }
 }
