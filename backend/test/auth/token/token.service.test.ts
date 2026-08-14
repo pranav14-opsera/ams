@@ -6,13 +6,25 @@ import { TokenService } from "../../../src/auth/token/token.service";
 import { InMemoryRefreshTokenStore } from "../../../src/auth/token/in-memory-refresh-token-store.service";
 import { InMemoryRbacService } from "../../../src/tenants/ports/in-memory/in-memory-rbac.service";
 import { InMemoryAuditService } from "../../../src/tenants/ports/in-memory/in-memory-audit.service";
+import { SessionService } from "../../../src/auth/session/session.service";
+import { InMemorySessionStore } from "../../../src/auth/session/in-memory-session-store.service";
+import { TenantSessionPolicyRepository } from "../../../src/auth/session/tenant-session-policy.repository";
+
+// A pure unit test of TokenService's own logic has no real Postgres —
+// SessionService.createSession() only ever reads (never writes) via the
+// pool, to look up a tenant's session policy, so a minimal fake that
+// always reports "no policy row" (falling back to defaults, exactly like
+// a real, freshly-provisioned tenant with no policy configured yet) is a
+// faithful stand-in, not a shortcut around real behavior.
+const fakePool = { query: async () => ({ rows: [] }) } as any;
 
 function buildTokenService() {
   const keyService = new JwtKeyService();
   const refreshTokenStore = new InMemoryRefreshTokenStore();
   const rbac = new InMemoryRbacService();
   const audit = new InMemoryAuditService();
-  const tokenService = new TokenService(keyService, refreshTokenStore, rbac, audit);
+  const sessionService = new SessionService(fakePool, new InMemorySessionStore(), refreshTokenStore, new TenantSessionPolicyRepository(), audit);
+  const tokenService = new TokenService(keyService, refreshTokenStore, rbac, audit, sessionService);
   const verifier = new MultiKeyJwtVerifier(keyService);
   return { tokenService, verifier, audit };
 }
@@ -35,7 +47,7 @@ test("access token never contains PHI-shaped fields — only identity/tenant/rol
   const tokens = await tokenService.issueTokenPair("user-1", "tenant-a", ["clinicians"], "fingerprint-1");
   const claims = await verifier.verify(tokens.accessToken);
   const claimKeys = Object.keys(claims);
-  const allowedKeys = new Set(["sub", "tid", "tenant_id", "roles", "permissions", "mfa_verified", "iat", "exp", "jti"]);
+  const allowedKeys = new Set(["sub", "tid", "tenant_id", "sid", "roles", "permissions", "mfa_verified", "iat", "exp", "jti"]);
   for (const key of claimKeys) {
     assert.ok(allowedKeys.has(key), `unexpected claim "${key}" — access tokens must only ever carry identity/authorization metadata`);
   }

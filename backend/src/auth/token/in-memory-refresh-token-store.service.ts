@@ -19,15 +19,20 @@ function tokenKey(tokenPlaintext: string): string {
 @Injectable()
 export class InMemoryRefreshTokenStore implements RefreshTokenStorePort {
   private readonly entries = new Map<string, Entry>();
+  private readonly keysByUser = new Map<string, Set<string>>();
+  private readonly keysBySession = new Map<string, Set<string>>();
 
   async store(tokenPlaintext: string, record: RefreshTokenRecord, ttlSeconds: number): Promise<void> {
-    this.entries.set(tokenKey(tokenPlaintext), { record, expiresAt: Date.now() + ttlSeconds * 1000 });
+    const key = tokenKey(tokenPlaintext);
+    this.entries.set(key, { record, expiresAt: Date.now() + ttlSeconds * 1000 });
+    this.indexAdd(this.keysByUser, record.userId, key);
+    this.indexAdd(this.keysBySession, record.sessionId, key);
   }
 
   async consumeAndInvalidate(tokenPlaintext: string): Promise<RefreshTokenRecord | null> {
     const key = tokenKey(tokenPlaintext);
     const entry = this.entries.get(key);
-    this.entries.delete(key); // single-use: gone regardless of whether it was valid, expired, or absent
+    this.removeKey(key, entry?.record); // single-use: gone regardless of whether it was valid, expired, or absent
     if (!entry || Date.now() >= entry.expiresAt) {
       return null;
     }
@@ -35,6 +40,40 @@ export class InMemoryRefreshTokenStore implements RefreshTokenStorePort {
   }
 
   async invalidate(tokenPlaintext: string): Promise<void> {
-    this.entries.delete(tokenKey(tokenPlaintext));
+    const key = tokenKey(tokenPlaintext);
+    const entry = this.entries.get(key);
+    this.removeKey(key, entry?.record);
+  }
+
+  async invalidateAllForUser(userId: string): Promise<void> {
+    const keys = this.keysByUser.get(userId);
+    if (!keys) return;
+    for (const key of [...keys]) {
+      const entry = this.entries.get(key);
+      this.removeKey(key, entry?.record);
+    }
+  }
+
+  async invalidateForSession(sessionId: string): Promise<void> {
+    const keys = this.keysBySession.get(sessionId);
+    if (!keys) return;
+    for (const key of [...keys]) {
+      const entry = this.entries.get(key);
+      this.removeKey(key, entry?.record);
+    }
+  }
+
+  private indexAdd(index: Map<string, Set<string>>, indexKey: string, key: string): void {
+    const set = index.get(indexKey) ?? new Set<string>();
+    set.add(key);
+    index.set(indexKey, set);
+  }
+
+  private removeKey(key: string, record: RefreshTokenRecord | undefined): void {
+    this.entries.delete(key);
+    if (record) {
+      this.keysByUser.get(record.userId)?.delete(key);
+      this.keysBySession.get(record.sessionId)?.delete(key);
+    }
   }
 }
