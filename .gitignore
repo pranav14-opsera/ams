@@ -45,3 +45,9 @@ package-leakage-report.json
 *-stderr.txt
 npm-audit.json
 precommit-scan-*.md
+axe-report.json
+
+# Playwright
+/frontend/test-results/
+/frontend/playwright-report/
+/frontend/.playwright/

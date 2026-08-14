@@ -111,6 +111,19 @@ stages:
             criticalHighHotspots: 0
             coverageThreshold: 80
             complexityLimitPerMethod: 15
+      - name: scan-axe-core
+        type: scan
+        variant: scan:accessibility
+        connectorId: null # no connector needed — runs directly in CI (WO-009)
+        depends_on: [build] # needs the built frontend/out static export to serve and scan
+        config:
+          tool: axe-core
+          standard: [wcag2a, wcag2aa, wcag21aa]
+          viewports: [mobile, tablet, desktop]
+          failOn: [critical]
+          warnOn: [serious]
+          reportFormat: json # axe-core's native output — no SARIF converter in this stack
+          target_duration_minutes: 5
     artifacts:
       formats: [sarif]
       retention_days: 90
