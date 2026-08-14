@@ -12,7 +12,13 @@ export class TenantsService {
 
   constructor(
     @Inject(PG_POOL) private readonly pool: Pool,
-    private readonly saga: TenantProvisioningSaga,
+    // Explicit token, not just the reflected class type: found (WO-015)
+    // that a concrete-class constructor param sitting next to interface-
+    // typed @Inject'd params can fail to resolve under esbuild-based
+    // transpilation (tsx, used by this repo's ad-hoc verification
+    // scripts) even though it resolves fine under the real tsc build —
+    // an explicit token removes the ambiguity for either toolchain.
+    @Inject(TenantProvisioningSaga) private readonly saga: TenantProvisioningSaga,
     private readonly tenantRepository: TenantRepository,
     @Inject(AUDIT_SERVICE) private readonly auditService: AuditServicePort,
   ) {}

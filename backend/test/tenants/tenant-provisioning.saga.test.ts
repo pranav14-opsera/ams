@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { Pool } from "pg";
 import { TenantProvisioningSaga, TenantAlreadyExistsError, TenantProvisioningError } from "../../src/tenants/tenant-provisioning.saga";
 import { TenantRepository } from "../../src/tenants/tenant.repository";
+import { TenantKeyMetadataRepository } from "../../src/tenants/tenant-key-metadata.repository";
 import { InMemoryKmsService } from "../../src/tenants/ports/in-memory/in-memory-kms.service";
 import { PostgresAuditService } from "../../src/tenants/ports/postgres/postgres-audit.service";
 import { PostgresRbacService } from "../../src/tenants/ports/postgres/postgres-rbac.service";
@@ -38,9 +39,10 @@ test("saga happy path: provisions tenant, key, RBAC rows, and an audit event", {
   const pool = new Pool({ connectionString: DATABASE_URL });
   const kms = new InMemoryKmsService();
   const repo = new TenantRepository();
+  const keyMetadataRepo = new TenantKeyMetadataRepository();
   const audit = new PostgresAuditService(pool);
   const rbac = new PostgresRbacService(pool);
-  const saga = new TenantProvisioningSaga(pool, repo, kms, rbac, audit);
+  const saga = new TenantProvisioningSaga(pool, repo, keyMetadataRepo, kms, rbac, audit);
 
   const slug = randomSlug();
   try {
@@ -70,9 +72,10 @@ test("saga rejects a duplicate slug without creating a second row", { skip }, as
   const pool = new Pool({ connectionString: DATABASE_URL });
   const kms = new InMemoryKmsService();
   const repo = new TenantRepository();
+  const keyMetadataRepo = new TenantKeyMetadataRepository();
   const audit = new PostgresAuditService(pool);
   const rbac = new PostgresRbacService(pool);
-  const saga = new TenantProvisioningSaga(pool, repo, kms, rbac, audit);
+  const saga = new TenantProvisioningSaga(pool, repo, keyMetadataRepo, kms, rbac, audit);
 
   const slug = randomSlug();
   try {
@@ -92,13 +95,14 @@ test("saga rolls back the DB transaction AND compensates the KMS key when a late
   const pool = new Pool({ connectionString: DATABASE_URL });
   const kms = new InMemoryKmsService();
   const repo = new TenantRepository();
+  const keyMetadataRepo = new TenantKeyMetadataRepository();
   const audit = new PostgresAuditService(pool);
   const failingRbac: RbacServicePort = {
     applyDefaultPolicies: async () => {
       throw new Error("simulated RBAC service outage");
     },
   };
-  const saga = new TenantProvisioningSaga(pool, repo, kms, failingRbac, audit);
+  const saga = new TenantProvisioningSaga(pool, repo, keyMetadataRepo, kms, failingRbac, audit);
 
   const slug = randomSlug();
   await assert.rejects(() => saga.provision({ name: "Rollback Co", slug, dataResidencyRegion: "us", actorId: null }), TenantProvisioningError);
@@ -117,9 +121,10 @@ test("saga does not call KMS at all if tenant creation itself fails (duplicate s
   const pool = new Pool({ connectionString: DATABASE_URL });
   const kms = new InMemoryKmsService();
   const repo = new TenantRepository();
+  const keyMetadataRepo = new TenantKeyMetadataRepository();
   const audit = new PostgresAuditService(pool);
   const rbac = new PostgresRbacService(pool);
-  const saga = new TenantProvisioningSaga(pool, repo, kms, rbac, audit);
+  const saga = new TenantProvisioningSaga(pool, repo, keyMetadataRepo, kms, rbac, audit);
 
   const slug = randomSlug();
   try {
