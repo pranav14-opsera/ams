@@ -13,6 +13,7 @@ import { TenantsModule } from "./tenants/tenants.module";
 const PRE_AUTH_ROUTES = [
   "health/live",
   "health/ready",
+  "health/startup",
   "api/v1/auth/saml/callback",
   "api/v1/auth/oidc/callback",
   "api/v1/auth/token/refresh",

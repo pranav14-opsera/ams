@@ -5,6 +5,9 @@ control plane, three node groups (system / application / data), namespace
 isolation per bounded context with quotas and default-deny network policies,
 and the CloudWatch audit log group.
 
+Also provisions the platform's API Gateway (WO-026): NGINX Ingress
+Controller, cert-manager, and routing — see [GATEWAY.md](./GATEWAY.md).
+
 ## Composition with the networking module (WO-002)
 
 This module takes `vpc_id`, `private_subnet_ids`, and `data_subnet_ids` as
