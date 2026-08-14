@@ -5,6 +5,7 @@ import { ClassificationModule } from "./classification/classification.module";
 import { DatabaseModule } from "./common/database/database.module";
 import { TenantContextMiddleware } from "./common/tenant-context.middleware";
 import { HealthController } from "./health.controller";
+import { GatewayModule } from "./gateway/gateway.module";
 import { PhiScrubberModule } from "./phi-scrubber/phi-scrubber.module";
 import { RbacModule } from "./rbac/rbac.module";
 import { ScimModule } from "./scim/scim.module";
@@ -14,6 +15,7 @@ const PRE_AUTH_ROUTES = [
   "health/live",
   "health/ready",
   "health/startup",
+  "metrics",
   "api/v1/auth/saml/callback",
   "api/v1/auth/oidc/callback",
   "api/v1/auth/token/refresh",
@@ -28,7 +30,10 @@ const PRE_AUTH_ROUTES = [
 const SCIM_ROUTES = ["scim/v2/Users", "scim/v2/Users/*", "scim/v2/Groups", "scim/v2/Groups/*"];
 
 @Module({
-  imports: [DatabaseModule, ClassificationModule, PhiScrubberModule, AuthModule, TenantsModule, RbacModule, ScimModule],
+  // GatewayModule (WO-027's RateLimiterGuard) is imported BEFORE
+  // RbacModule so its APP_GUARD runs first — an over-quota request is
+  // rejected before any authorization-check work happens at all.
+  imports: [DatabaseModule, ClassificationModule, PhiScrubberModule, AuthModule, TenantsModule, GatewayModule, RbacModule, ScimModule],
   controllers: [HealthController],
 })
 export class AppModule implements NestModule {
