@@ -101,7 +101,11 @@ resource "aws_security_group_rule" "redis_egress_all" {
 # effectively noeviction — volatile-lru never touches a key with no TTL
 # set, regardless of memory pressure.
 resource "aws_elasticache_parameter_group" "main" {
-  name_prefix = "${local.identifier}-"
+  # Unlike most AWS resources this module uses name_prefix for,
+  # aws_elasticache_parameter_group has no name_prefix argument — only a
+  # fixed, required "name". (Caught by CI's terraform validate, which
+  # can't run locally in this environment — see README.)
+  name        = "${local.identifier}-params"
   family      = "redis7"
   description = "Parameter group for ${local.identifier}"
 
