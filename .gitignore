@@ -19,6 +19,12 @@ override.tf.json
 .terraformrc
 terraform.rc
 backend.hcl
+*.zip
+
+# Python (Lambda rotation function tests)
+__pycache__/
+*.pyc
+.pytest_cache/
 
 # Security scan artifacts (transient, uploaded to Opsera separately)
 gitleaks-report.json
