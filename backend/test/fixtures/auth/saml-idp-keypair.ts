@@ -1,0 +1,57 @@
+// Real self-signed RSA key pair (openssl req -x509, 100-year expiry),
+// generated solely to sign SAML assertion fixtures for WO-018's tests.
+// Embedded as string constants rather than committed .pem files because
+// this repo's .gitignore (WO-011) deliberately excludes *.pem/*.key
+// repo-wide as a real security control — the same reason WO-013's
+// jwt-fixtures.json stores its PEM content as a JSON string field
+// instead of a raw key file. NEVER use this key pair outside tests.
+export const SAML_IDP_CERT_PEM = `-----BEGIN CERTIFICATE-----
+MIIDEzCCAfugAwIBAgIUYZJ/z/GviQucQ/Gpo30FWMSsYrEwDQYJKoZIhvcNAQEL
+BQAwGDEWMBQGA1UEAwwNbW9jay1pZHAudGVzdDAgFw0yNjA4MTQyMTIxMjhaGA8y
+MTI2MDcyMTIxMjEyOFowGDEWMBQGA1UEAwwNbW9jay1pZHAudGVzdDCCASIwDQYJ
+KoZIhvcNAQEBBQADggEPADCCAQoCggEBALpgMOhRsYHEGvcli61FkFKZqWf9mxd1
+3I2y7xq7QmaFWj/m2dc0B8ArxRpe9hOx4U7hczagPEjabK1E1VPHluBGStg/u1ST
+GaS5lDDLzPHU3Fhb8K3T18rZzv2mr8r673D1cki9xFdbDeoA6JGH5vfNMPv/CkgM
+yNSs8Wte+KpfQi8h195Jmjy8cKnPuCHbjFaB9sMTOWCGwf3pmDFHC8aK6z5lc/FJ
+ufExZTlZt/ynNmOxSWjswBct2vHfoJ5SsDprVIHbBsOY3us219DS5V+YyNcfktQN
+YdGeyG0f/Mw4q5njPpO5m5WgITM2fsIe12+celCAZ5+RkE5nZD6ZUEMCAwEAAaNT
+MFEwHQYDVR0OBBYEFImHHGq4Xu4+PNv2MHIDFwkCa6H5MB8GA1UdIwQYMBaAFImH
+HGq4Xu4+PNv2MHIDFwkCa6H5MA8GA1UdEwEB/wQFMAMBAf8wDQYJKoZIhvcNAQEL
+BQADggEBAAOfFKyUYRd+DX+IIlAMECER1fLJ3O0pqb9LXOU8vX0OUEysS8c1inAM
+Rnbnw9KFcRFhGBGiO0HYt01NjOgRH2iucYF/lXuVCzhjUyKO/Q1p0fr3XyQXtz/u
+HCxwlC2f3I/clqH0UXfZIY+N2igbU4EdeADKHRs/EpNdwBnfrV2DIFfbAU/TgAKs
+ax2QMXdeIDDceST7lZz5q+Z+2+Rqw46DsDGAqVjVvETVANlyu6Q05fb7IR13te5y
+WW8kiDN6oAxebB+u46JrAnfI5Xi9pfTLTwVjtKtapaMpvxd+f6lBXJ4YUhyKf5Hp
+K4OUEI65gy9f4duvZW3A/8hbXcmMoMQ=
+-----END CERTIFICATE-----
+`;
+
+export const SAML_IDP_PRIVATE_KEY_PEM = `-----BEGIN PRIVATE KEY-----
+MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC6YDDoUbGBxBr3
+JYutRZBSmaln/ZsXddyNsu8au0JmhVo/5tnXNAfAK8UaXvYTseFO4XM2oDxI2myt
+RNVTx5bgRkrYP7tUkxmkuZQwy8zx1NxYW/Ct09fK2c79pq/K+u9w9XJIvcRXWw3q
+AOiRh+b3zTD7/wpIDMjUrPFrXviqX0IvIdfeSZo8vHCpz7gh24xWgfbDEzlghsH9
+6ZgxRwvGius+ZXPxSbnxMWU5Wbf8pzZjsUlo7MAXLdrx36CeUrA6a1SB2wbDmN7r
+NtfQ0uVfmMjXH5LUDWHRnshtH/zMOKuZ4z6TuZuVoCEzNn7CHtdvnHpQgGefkZBO
+Z2Q+mVBDAgMBAAECggEAC+jxtybhTQWXI4wGrP/xBRZEuRx/uLQTcAqrNO4ahCqp
+ZcP+z73HcQRbCCBhYUjQuRW3IxqCP7WVlEz9xOjQP2y+g6su8WylCt3BFo0vf5S2
+r/7QFoufEptwmsz4FuSKQJGux+84iMyMyxNbyVEB9XvrUW8u3QPUIaMbmlzrTxfD
+MjPtaJOWlXBL4g744CiHoxrBSi4v4KR/RwquwDkSyWJeba1zo1F5oZG8XFe6ICI/
+E5mV9n8yQrqsE3MNoW62vtpOgBefirLROME6WUxR1Wyl0XNIJgeliTbZsnHSnbfW
+gBeLpiARCXwsoUetp7kcqqsX7KS9ukIau6NTioQOAQKBgQDza8OxMuVrEPiOcM0G
+3N5p64WJR12TQgDY0fxjQYiAJlnn2GO4Bffj9CdFzPsJGLHS/frtfOU/cFi3Px4H
+nszkymARWHyDytHN2EvM5iv8qAFHvPO64mQFEPlMp1mhWNwEHUQbNVYf2K5/z6/B
+y0GizNaiJFKoI95q009VI0FUQQKBgQDEAcVbc9O7Nhpb2ALB8v4f/sRpRPjDSYia
+9Ql1zE0neMFI1f+ylLIdMt66EeWAMqrcj3uU4yf5z10otAgxyTiE7G8u9x1+rFjM
+ZK251HuvJrD6vTDhZk3xXF/dfyQu+mzHRvMFMSwH/aoa0gZvvICDYYD6qg9ItqLy
+wtp+PtJzgwKBgBhC8WpD7GHTezKXQ5gfg3uDIfggyM7YkUULCODLs1Myf1uAUdAR
+qDdsKk3mtE6fy3mAHvZ0sFS2WeFJxTB1P26+TPztmNt555dgq41sk43HIPmJd7F0
+xwtKOc7ODzzpomQ2locvtbnO2vWaOaZTH+OeDvZyMFrZ2F1FWm7d6LEBAoGBAIOM
+sLmFTniagixcGNW00WwF4CrK2K6w3pcpmDTQboPsXsUUo21msPg52RRGyKI230fy
+oL23i2/1BZA47DsF0wIbcS+zOL94yow7kgFjo7NVI3jVm0XcFLnGBq0xFMbW2kUQ
+0DAO5X9jd1RS23EIsbP7r8YMdv+VXF3T+zK51SMjAoGARB5OP//n3CRlYFujs+5m
+NrtncmosbgsVciCfEe+qES00kRLOYeVj6Q9FcPgrn1Nv+q9d9PGMdJOZvojUIysw
+EOoBcmc9JpGauJTIefE4wh56L4LtTpyZAj0ysy1PX90+4jkU6jKQvSVMRFY7o37a
+G4MpXq4WHgaDPHMWawqw0no=
+-----END PRIVATE KEY-----
+`;
