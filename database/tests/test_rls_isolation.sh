@@ -24,7 +24,11 @@ PGDATABASE="${3:-ams_test}"
 TENANT_A="11111111-1111-1111-1111-111111111111"
 TENANT_B="22222222-2222-2222-2222-222222222222"
 
-TABLES=(users teams team_members agents audit_events agent_metrics agent_state_transitions rbac_policies credit_transactions)
+# WO-014 extends this to all 11 tenant-scoped tables named in its
+# acceptance criteria (abac_policies, governance_rules, approval_requests,
+# dsr_requests added; team_members/agent_metrics kept as bonus coverage
+# from WO-004, though they aren't in WO-014's named list).
+TABLES=(users teams team_members agents audit_events agent_metrics agent_state_transitions rbac_policies abac_policies credit_transactions governance_rules approval_requests dsr_requests)
 
 failures=()
 
