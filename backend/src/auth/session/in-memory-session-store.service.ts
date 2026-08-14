@@ -24,6 +24,13 @@ export class InMemorySessionStore implements SessionStorePort {
     }
   }
 
+  async update(sessionId: string, patch: Partial<Pick<SessionRecord, "mfaElevated" | "mfaElevatedAt">>): Promise<void> {
+    const session = this.sessions.get(sessionId);
+    if (session) {
+      Object.assign(session, patch);
+    }
+  }
+
   async delete(sessionId: string): Promise<void> {
     const session = this.sessions.get(sessionId);
     this.sessions.delete(sessionId);

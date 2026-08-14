@@ -1,0 +1,16 @@
+{
+  "description": "Illustrative shapes for WO-021's MFA data — the actual TOTP secret and backup codes used in tests are generated fresh per test run (real crypto against real, freshly-created RSA/AES key material from InMemoryKmsService), not replayed from a static fixture, since a real TOTP secret's validity is time-dependent and a static committed code would be permanently expired. This file documents the shapes those real values take.",
+  "sampleProvisioningUri": "otpauth://totp/AMS%20Platform:user%40example.com?secret=JBSWY3DPEHPK3PXP&issuer=AMS%20Platform&algorithm=SHA1&digits=6&period=30",
+  "sampleBackupCode": "K7M4XQR2WT",
+  "sampleTenantMfaPolicy": {
+    "restrictedElevationMinutes": 60,
+    "requireMfaForInternal": false,
+    "requireMfaForPublic": false
+  },
+  "classificationTierBehavior": [
+    { "tier": "public", "defaultRequiresMfa": false, "elevationDuration": "session-lifetime once required" },
+    { "tier": "internal", "defaultRequiresMfa": false, "elevationDuration": "session-lifetime once required" },
+    { "tier": "confidential", "defaultRequiresMfa": true, "elevationDuration": "session-lifetime (no separate expiry beyond the session itself)" },
+    { "tier": "restricted", "defaultRequiresMfa": true, "elevationDuration": "restrictedElevationMinutes (default 60), re-verification required after that even mid-session" }
+  ]
+}

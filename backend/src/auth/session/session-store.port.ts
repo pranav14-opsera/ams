@@ -26,6 +26,8 @@ export interface SessionStorePort {
   get(sessionId: string): Promise<SessionRecord | null>;
   /** Best-effort — callers debounce themselves (see SessionService) rather than relying on this to be a no-op for rapid repeated calls. */
   touch(sessionId: string, lastActivityAt: Date): Promise<void>;
+  /** Partial update — e.g. MFA elevation (WO-021: mfaElevated/mfaElevatedAt) without re-specifying the whole record. No-ops if the session no longer exists. */
+  update(sessionId: string, patch: Partial<Pick<SessionRecord, "mfaElevated" | "mfaElevatedAt">>): Promise<void>;
   delete(sessionId: string): Promise<void>;
 
   /** Every session currently open for a user — the SET this WO's implementation steps describe (user_sessions:{user_id}). */
