@@ -1,0 +1,74 @@
+name: Database checks
+
+on:
+  pull_request:
+    paths:
+      - "database/**"
+  push:
+    branches: [main]
+    paths:
+      - "database/**"
+
+permissions:
+  contents: read
+
+jobs:
+  migrate-and-test:
+    name: migrate / seed / adversarial RLS test
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Install dependencies
+        working-directory: database
+        run: npm install
+
+      - name: Run migrations
+        working-directory: database
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+        run: npm run migrate
+
+      - name: Run migrations again (idempotency check)
+        working-directory: database
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+        run: npm run migrate
+
+      - name: Load seed data
+        working-directory: database
+        env:
+          PGPASSWORD: postgres
+        run: psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f seeds/test_data.sql
+
+      # CI-only: gives the ams_app role a password so the test script (which
+      # authenticates as ams_app, not postgres) can connect under the
+      # container's default password auth. Never part of the checked-in
+      # migrations — production auth to this role is via IAM/Secrets
+      # Manager, not a static password.
+      - name: Set test password for ams_app role
+        env:
+          PGPASSWORD: postgres
+        run: psql -h localhost -U postgres -d postgres -c "ALTER ROLE ams_app PASSWORD 'postgres';"
+
+      - name: Adversarial cross-tenant isolation test
+        working-directory: database
+        env:
+          PGPASSWORD: postgres
+        run: bash tests/test_rls_isolation.sh localhost 5432 postgres

@@ -25,6 +25,10 @@ jobs:
           - infrastructure/terraform/bootstrap
           - infrastructure/terraform/networking
           - infrastructure/terraform/kubernetes
+          - infrastructure/terraform/kms
+          - infrastructure/terraform/secrets
+          - infrastructure/terraform/modules/byok-grant
+          - infrastructure/terraform/database/postgresql
     steps:
       - uses: actions/checkout@v4
 

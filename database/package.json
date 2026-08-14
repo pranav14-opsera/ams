@@ -1,0 +1,14 @@
+{
+  "name": "@ams/database",
+  "version": "1.0.0",
+  "private": true,
+  "description": "PostgreSQL migrations, seeds, and RLS isolation tests for the AMS platform (WO-004).",
+  "scripts": {
+    "migrate": "node migrate.js",
+    "seed": "node -e \"require('./migrate.js').runSqlFile(require('./migrate.js').defaultConnectionString(), 'seeds/test_data.sql')\"",
+    "test": "node migrate.js && bash tests/test_rls_isolation.sh"
+  },
+  "dependencies": {
+    "pg": "^8.13.0"
+  }
+}
