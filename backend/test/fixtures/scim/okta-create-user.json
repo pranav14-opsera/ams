@@ -1,0 +1,9 @@
+{
+  "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
+  "userName": "clinician.okta@example.com",
+  "name": { "givenName": "Clinician", "familyName": "Okta", "formatted": "Clinician Okta" },
+  "displayName": "Clinician Okta",
+  "emails": [{ "primary": true, "value": "clinician.okta@example.com", "type": "work" }],
+  "externalId": "00u1a2b3c4d5e6f7g8h9",
+  "active": true
+}

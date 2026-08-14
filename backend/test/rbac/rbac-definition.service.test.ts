@@ -77,7 +77,7 @@ test("every one of the 5 canonical roles is seeded in the database", { skip }, a
   }
 });
 
-test("all 41 canonical permissions are seeded, at least 8 feature areas, at least 40 permissions", { skip }, async () => {
+test("all canonical permissions are seeded, at least 8 feature areas, at least 40 permissions", { skip }, async () => {
   const pool = new Pool({ connectionString: DATABASE_URL });
   try {
     const result = await pool.query<{ name: string; feature_area: string }>("SELECT name, feature_area FROM permissions");

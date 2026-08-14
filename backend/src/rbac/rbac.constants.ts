@@ -1,6 +1,6 @@
 // WO-023: compile-time-safe references to the five canonical platform
 // roles, the 8 permission feature areas, the permission actions used
-// across them, and the full 41-permission name list — all mirroring the
+// across them, and the full permission name list — all mirroring the
 // seed data in database/migrations/024_rbac_permission_matrix.sql
 // exactly. Keep these two in sync; a unit test
 // (test/rbac/rbac-definition.service.test.ts) asserts the seeded
@@ -94,6 +94,7 @@ export enum PermissionName {
   USER_DEACTIVATE = "user_management:user:deactivate",
   ROLE_ASSIGN = "user_management:role:assign",
   GROUP_MAPPING_MANAGE = "user_management:group_mapping:manage",
+  SCIM_TOKEN_MANAGE = "user_management:scim_token:manage",
 
   TENANT_SETTINGS_MANAGE = "tenant_configuration:settings:manage",
   TENANT_SSO_CONFIGURE = "tenant_configuration:sso:configure",

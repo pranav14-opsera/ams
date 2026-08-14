@@ -1,0 +1,9 @@
+{
+  "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
+  "externalId": "aad-9f8e7d6c-5b4a-3210-9876-543210fedcba",
+  "userName": "clinician.entra@example.com",
+  "active": true,
+  "displayName": "Clinician Entra",
+  "emails": [{ "value": "clinician.entra@example.com", "type": "work", "primary": true }],
+  "meta": { "resourceType": "User" }
+}

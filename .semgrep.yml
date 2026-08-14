@@ -47,6 +47,18 @@ rules:
         # there is no tenant-scoped data table query here to filter.
         - backend/src/tenants/tenant.repository.ts
         - backend/src/common/tenant-context.middleware.ts
+        # Same set_config/dynamic-COMMIT-ROLLBACK plumbing as
+        # tenant-context.middleware.ts above — ScimAuthGuard (WO-025)
+        # establishes app.current_tenant for a SCIM request the same way.
+        - backend/src/scim/scim-auth.guard.ts
+        # scim_tokens (database/migrations/025_scim_tokens.sql) is
+        # deliberately NOT RLS-protected and has NO tenant_id filter on
+        # this ONE lookup query by design: a SCIM request arrives with
+        # only a bearer token and no tenant context yet at all — that's
+        # what this query discovers. See the migration's own comment for
+        # the full justification (same structural reason `tenants` itself
+        # isn't tenant-scoped).
+        - backend/src/scim/scim-token.repository.ts
     metadata:
       category: security
       references:
