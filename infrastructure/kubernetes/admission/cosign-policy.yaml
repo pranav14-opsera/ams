@@ -1,0 +1,74 @@
+# Requires every pod's image(s) to carry a valid cosign signature AND the
+# custom attestation from scripts/ci/sign-image.sh (git SHA, pipeline run
+# ID, scan-pass timestamp) before admission — WO-012's acceptance
+# criteria. Applied via kubectl/GitOps once a cluster connector exists
+# (see infrastructure/terraform/kubernetes/kyverno.tf for why this isn't
+# Terraform-managed).
+#
+# Before applying: substitute ${image_signing_kms_key_arn} with the real
+# ARN from `terraform output -raw image_signing_key_arn`
+# (infrastructure/terraform/kms), e.g. via
+#   envsubst < cosign-policy.yaml | kubectl apply -f -
+# Verified against a real kyverno CLI (v1.13.4) locally: an unsubstituted
+# placeholder is treated as a literal filesystem path (fails immediately,
+# a clear signal something's misconfigured rather than a silent bypass);
+# a correctly-substituted awskms:///<arn> URI is recognized and Kyverno
+# genuinely attempts to fetch the signature from the registry.
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-signed-images
+  annotations:
+    policies.kyverno.io/title: Require signed and attested container images
+    policies.kyverno.io/category: Supply Chain Security
+    policies.kyverno.io/severity: critical
+    policies.kyverno.io/description: >-
+      Rejects any pod whose image is not signed by the platform's KMS-backed
+      cosign key and does not carry the custom build attestation. Fails
+      closed (failurePolicy: Fail on the webhook) — an unreachable
+      admission controller blocks scheduling rather than letting an
+      unverified image through.
+spec:
+  webhookConfiguration:
+    failurePolicy: Fail
+  validationFailureAction: Enforce
+  background: false # image verification only makes sense at admission time, not against already-running pods on a periodic scan
+  rules:
+    - name: verify-cosign-signature
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+      # Every namespace is in scope (the acceptance criteria says "all
+      # namespaces", no carve-out) — but the imageReferences filter below
+      # scopes verification to this platform's own ECR images
+      # (*.dkr.ecr.*.amazonaws.com/ams-*) only. Cluster-system images
+      # (coredns, aws-node, etc., pulled from registry.k8s.io or similar)
+      # are never signed by us and are correctly left untouched by this
+      # policy — verified locally: a coredns pod produces 0 pass/fail,
+      # not a rejection, confirming the filter actually scopes the check
+      # rather than accidentally matching everything.
+      verifyImages:
+        - imageReferences:
+            - "*.dkr.ecr.*.amazonaws.com/ams-*"
+          attestors:
+            - count: 1
+              entries:
+                - keys:
+                    kms: "awskms:///${image_signing_kms_key_arn}"
+          attestations:
+            - predicateType: https://cosign.sigstore.dev/attestation/v1
+              attestors:
+                - count: 1
+                  entries:
+                    - keys:
+                        kms: "awskms:///${image_signing_kms_key_arn}"
+              conditions:
+                - all:
+                    - key: "{{ predicate.Data.gitSha || '' }}"
+                      operator: NotEquals
+                      value: ""
+                    - key: "{{ predicate.Data.scanPassTimestamp || '' }}"
+                      operator: NotEquals
+                      value: ""

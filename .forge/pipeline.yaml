@@ -160,6 +160,24 @@ stages:
           tags: ["$GIT_SHA_SHORT", "$BRANCH_NAME"]
           latestOnMain: true
           region: us-east-1
+      - name: sign-frontend
+        type: push
+        variant: push:sign
+        connectorId: null # requires an AWS connector authorized for this project's KMS key
+        depends_on: [push-frontend]
+        config:
+          script: scripts/ci/sign-image.sh
+          env:
+            KMS_KEY_ALIAS: alias/ams-${TARGET_ENVIRONMENT}-image-signing
+      - name: sign-backend
+        type: push
+        variant: push:sign
+        connectorId: null
+        depends_on: [push-backend]
+        config:
+          script: scripts/ci/sign-image.sh
+          env:
+            KMS_KEY_ALIAS: alias/ams-${TARGET_ENVIRONMENT}-image-signing
 
   - name: gate
     depends_on: [push]
@@ -192,10 +210,35 @@ stages:
           # ReplicaSet transitions — reject outright rather than queue,
           # so a stuck deployment is visibly stuck, not silently delayed.
           onConflict: reject
+      - name: verify-frontend-image
+        type: deploy
+        variant: deploy:verify_signature
+        connectorId: null # requires an AWS connector authorized for this project's KMS key
+        description: >-
+          Runs before any Helm upgrade — a second, independent check on
+          top of Kyverno's cluster-side admission control (WO-012). A
+          deploy step that never even reaches the cluster with a bad
+          image is strictly better than relying on the admission
+          webhook alone.
+        config:
+          script: scripts/ci/verify-image.sh
+          env:
+            KMS_KEY_ALIAS: alias/ams-${TARGET_ENVIRONMENT}-image-signing
+            EXPECTED_GIT_SHA: $GIT_SHA_SHORT
+      - name: verify-backend-image
+        type: deploy
+        variant: deploy:verify_signature
+        connectorId: null
+        config:
+          script: scripts/ci/verify-image.sh
+          env:
+            KMS_KEY_ALIAS: alias/ams-${TARGET_ENVIRONMENT}-image-signing
+            EXPECTED_GIT_SHA: $GIT_SHA_SHORT
       - name: deploy-frontend
         type: deploy
         variant: deploy:helm
         connectorId: null # requires an AWS connector authorized for this project's EKS cluster
+        depends_on: [verify-frontend-image]
         config:
           chart: infrastructure/helm/base-service
           release: ams-frontend
@@ -208,6 +251,7 @@ stages:
         type: deploy
         variant: deploy:helm
         connectorId: null
+        depends_on: [verify-backend-image]
         config:
           chart: infrastructure/helm/base-service
           release: ams-backend

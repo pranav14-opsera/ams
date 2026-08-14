@@ -1,0 +1,86 @@
+name: Image signing checks
+
+# Realizes WO-012's sign/verify scripts and Kyverno admission policy
+# verification. No AWS-authorized KMS key or EKS cluster exists in this
+# environment (same connector gap as every other pipeline stage — see
+# .forge/README.md), so this can't test a live KMS-backed sign/verify or
+# a real admission-webhook rejection. What it DOES verify for real:
+# cosign's own crypto engine (sign/verify round-trip with a local key,
+# and that tampering breaks verification), the sign/verify scripts'
+# logic against a stubbed cosign, and that the Kyverno ClusterPolicy
+# loads correctly and genuinely attempts registry verification for a
+# matching image (not silently skipped, not failing on a config error).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/ci/**"
+      - "infrastructure/kubernetes/admission/**"
+      - "infrastructure/terraform/kms/image-signing-key.tf"
+      - "infrastructure/terraform/ecr/**"
+  pull_request:
+    paths:
+      - "scripts/ci/**"
+      - "infrastructure/kubernetes/admission/**"
+      - "infrastructure/terraform/kms/image-signing-key.tf"
+      - "infrastructure/terraform/ecr/**"
+
+permissions:
+  contents: read
+
+jobs:
+  cosign-crypto-smoke-test:
+    name: cosign / sign-verify round trip
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Install cosign
+        run: |
+          curl -sSL -o /usr/local/bin/cosign "https://github.com/sigstore/cosign/releases/download/v2.4.1/cosign-linux-amd64"
+          chmod +x /usr/local/bin/cosign
+
+      - name: Generate a local key pair
+        run: |
+          export COSIGN_PASSWORD=""
+          cosign generate-key-pair
+
+      - name: Sign and verify a blob (should succeed)
+        run: |
+          export COSIGN_PASSWORD=""
+          echo "test payload" > testfile.txt
+          cosign sign-blob --key cosign.key --output-signature testfile.sig --tlog-upload=false --yes testfile.txt
+          cosign verify-blob --key cosign.pub --signature testfile.sig --insecure-ignore-tlog=true testfile.txt
+
+      - name: Verify a tampered blob is rejected
+        run: |
+          echo "TAMPERED" > testfile.txt
+          if cosign verify-blob --key cosign.pub --signature testfile.sig --insecure-ignore-tlog=true testfile.txt; then
+            echo "::error::tampered blob was accepted — signature verification is not working"
+            exit 1
+          fi
+          echo "OK: tampering was correctly rejected"
+
+  script-tests:
+    name: scripts/ci / unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash scripts/ci/tests/sign-image.test.sh
+      - run: bash scripts/ci/tests/verify-image.test.sh
+
+  kyverno-policy-test:
+    name: admission / cosign-policy test
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install kyverno CLI
+        run: |
+          curl -sSL -o kyverno-cli.tar.gz "https://github.com/kyverno/kyverno/releases/download/v1.13.4/kyverno-cli_v1.13.4_linux_x86_64.tar.gz"
+          tar -xzf kyverno-cli.tar.gz kyverno
+          sudo mv kyverno /usr/local/bin/kyverno
+
+      - run: bash infrastructure/kubernetes/admission/tests/cosign-policy.test.sh

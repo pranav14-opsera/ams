@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-backend
+  namespace: agent-management
+spec:
+  containers:
+    - name: backend
+      image: 123456789012.dkr.ecr.us-east-1.amazonaws.com/ams-backend@sha256:e4a0208a0568903eed26ee5e1920fd6b356352b92e1be4397f755ceab86f2240
