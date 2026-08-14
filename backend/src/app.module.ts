@@ -6,6 +6,7 @@ import { DatabaseModule } from "./common/database/database.module";
 import { TenantContextMiddleware } from "./common/tenant-context.middleware";
 import { HealthController } from "./health.controller";
 import { PhiScrubberModule } from "./phi-scrubber/phi-scrubber.module";
+import { RbacModule } from "./rbac/rbac.module";
 import { TenantsModule } from "./tenants/tenants.module";
 
 const PRE_AUTH_ROUTES = [
@@ -18,7 +19,7 @@ const PRE_AUTH_ROUTES = [
 ];
 
 @Module({
-  imports: [DatabaseModule, ClassificationModule, PhiScrubberModule, AuthModule, TenantsModule],
+  imports: [DatabaseModule, ClassificationModule, PhiScrubberModule, AuthModule, TenantsModule, RbacModule],
   controllers: [HealthController],
 })
 export class AppModule implements NestModule {

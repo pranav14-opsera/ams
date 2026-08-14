@@ -1,7 +1,11 @@
 import { Injectable } from "@nestjs/common";
 import type { Pool } from "pg";
+import type { PlatformRoleName } from "../../rbac/rbac.constants";
 
-export type PlatformRole = "platform_admin" | "compliance_officer" | "finance_manager" | "team_lead" | "agent_operator";
+// Re-exported under this name for backward compatibility with existing
+// call sites — WO-023 centralized the canonical role-name enum in
+// rbac.constants.ts, this module no longer defines its own copy.
+export type PlatformRole = PlatformRoleName;
 
 export interface GroupRoleMapping {
   id: string;
