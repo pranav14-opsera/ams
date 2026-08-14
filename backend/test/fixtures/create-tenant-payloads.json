@@ -1,0 +1,15 @@
+{
+  "valid": [
+    { "name": "Acme Health", "slug": "acme-health", "dataResidencyRegion": "us" },
+    { "name": "Nordic Care", "slug": "nordic-care", "dataResidencyRegion": "eu", "settings": { "sessionTimeoutMinutes": 15 } }
+  ],
+  "invalid": [
+    { "case": "missing name", "payload": { "slug": "no-name", "dataResidencyRegion": "us" } },
+    { "case": "empty name", "payload": { "name": "", "slug": "empty-name", "dataResidencyRegion": "us" } },
+    { "case": "uppercase slug", "payload": { "name": "Bad Slug", "slug": "Bad-Slug", "dataResidencyRegion": "us" } },
+    { "case": "slug with underscore", "payload": { "name": "Bad Slug", "slug": "bad_slug", "dataResidencyRegion": "us" } },
+    { "case": "invalid dataResidencyRegion", "payload": { "name": "Bad Region", "slug": "bad-region", "dataResidencyRegion": "apac" } },
+    { "case": "settings not an object", "payload": { "name": "Bad Settings", "slug": "bad-settings", "dataResidencyRegion": "us", "settings": "not-an-object" } },
+    { "case": "unexpected extra field", "payload": { "name": "Extra Field", "slug": "extra-field", "dataResidencyRegion": "us", "hackerField": "x" } }
+  ]
+}

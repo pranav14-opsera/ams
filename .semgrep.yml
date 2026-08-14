@@ -25,11 +25,28 @@ rules:
           metavariable: $QUERY
           patterns:
             - pattern-not-regex: tenant_id
+      # BEGIN/COMMIT/ROLLBACK are transaction control, never a query
+      # against tenant-scoped data — flagging them was always a false
+      # positive, found by running this rule against WO-013's saga code
+      # (infrastructure/terraform/kms's rotation Lambda pattern doesn't
+      # hit this because Python isn't in `languages` above; this is the
+      # first TypeScript code using explicit BEGIN/COMMIT/ROLLBACK).
+      - metavariable-pattern:
+          metavariable: $QUERY
+          patterns:
+            - pattern-not-regex: ^"(BEGIN|COMMIT|ROLLBACK)"$
     paths:
       exclude:
         # Migration runner: DDL + schema_migrations bookkeeping, not
         # queries against tenant-scoped application tables.
         - database/migrate.js
+        # tenants IS the tenant dimension — deliberately the one table
+        # with no RLS policy (database/migrations/001_create_tenants.sql).
+        # Every query in these two files is either against `tenants`
+        # itself or session/transaction plumbing (set_config, BEGIN);
+        # there is no tenant-scoped data table query here to filter.
+        - backend/src/tenants/tenant.repository.ts
+        - backend/src/common/tenant-context.middleware.ts
     metadata:
       category: security
       references:
