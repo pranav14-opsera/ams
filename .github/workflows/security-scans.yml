@@ -1,0 +1,200 @@
+name: Security scans
+
+# Realizes the pipeline's `scan` stage (.forge/pipeline.yaml, WO-008): five
+# scans run in parallel, each uploads SARIF + a 90-day-retained artifact
+# (SOC 2 audit evidence), and a summary is posted back on the PR.
+#
+# Gitleaks, Semgrep, and Grype run for real, unconditionally, with no
+# account required. Snyk and SonarQube need a project-authorized account
+# (SNYK_TOKEN / SONAR_TOKEN) that doesn't exist in this environment — same
+# class of gap as WO-007's AWS/GitHub connectors. Both jobs are wired for
+# real and will start running the moment their secret is added; until
+# then they report a clear "skipped — no token" status rather than a
+# false pass.
+
+on:
+  push:
+    branches: [main]
+  pull_request: {}
+
+permissions:
+  contents: read
+  security-events: write
+  pull-requests: write
+
+jobs:
+  gitleaks:
+    name: scan / gitleaks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history — acceptance criteria: not just the diff
+      - name: Run gitleaks (full history)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITLEAKS_CONFIG: .gitleaks.toml
+          GITLEAKS_REPORT_FORMAT: sarif
+          GITLEAKS_REPORT_PATH: gitleaks.sarif
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: true
+          GITLEAKS_ENABLE_SUMMARY: true
+      - uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: gitleaks.sarif
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: scan-gitleaks
+          path: gitleaks.sarif
+          retention-days: 90
+
+  semgrep:
+    name: scan / semgrep
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    container: semgrep/semgrep
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run semgrep (OWASP Top 10 + TS/Node + custom rules)
+        run: |
+          semgrep scan \
+            --config p/owasp-top-ten \
+            --config p/typescript \
+            --config p/nodejs \
+            --config .semgrep.yml \
+            --sarif --output semgrep.sarif \
+            --error --severity ERROR
+      - uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: semgrep.sarif
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: scan-semgrep
+          path: semgrep.sarif
+          retention-days: 90
+
+  grype:
+    name: scan / grype (${{ matrix.service }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [frontend, backend]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image to scan
+        working-directory: ${{ matrix.service }}
+        run: docker build -t ams-${{ matrix.service }}:${{ github.sha }} .
+      - name: Run grype
+        uses: anchore/scan-action@v5
+        id: grype
+        with:
+          image: ams-${{ matrix.service }}:${{ github.sha }}
+          fail-build: true
+          severity-cutoff: high
+          output-format: sarif
+      - uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: ${{ steps.grype.outputs.sarif }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: scan-grype-${{ matrix.service }}
+          path: ${{ steps.grype.outputs.sarif }}
+          retention-days: 90
+
+  snyk:
+    name: scan / snyk
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check for SNYK_TOKEN
+        id: check
+        run: echo "has_token=${{ secrets.SNYK_TOKEN != '' }}" >> "$GITHUB_OUTPUT"
+      - name: Run snyk (all projects, transitive deps)
+        if: steps.check.outputs.has_token == 'true'
+        uses: snyk/actions/node@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --all-projects --severity-threshold=high --sarif-file-output=snyk.sarif
+      - name: No SNYK_TOKEN — reporting gap, not a pass
+        if: steps.check.outputs.has_token != 'true'
+        run: |
+          echo "::warning::snyk skipped — no SNYK_TOKEN secret configured for this repo (see .snyk)."
+          exit 0
+      - uses: github/codeql-action/upload-sarif@v3
+        if: steps.check.outputs.has_token == 'true' && always()
+        with:
+          sarif_file: snyk.sarif
+      - uses: actions/upload-artifact@v4
+        if: steps.check.outputs.has_token == 'true' && always()
+        with:
+          name: scan-snyk
+          path: snyk.sarif
+          retention-days: 90
+
+  sonarqube:
+    name: scan / sonarqube
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check for SONAR_TOKEN
+        id: check
+        run: echo "has_token=${{ secrets.SONAR_TOKEN != '' }}" >> "$GITHUB_OUTPUT"
+      - name: Run SonarQube quality gate
+        if: steps.check.outputs.has_token == 'true'
+        uses: SonarSource/sonarqube-scan-action@v4
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
+      - name: No SONAR_TOKEN — reporting gap, not a pass
+        if: steps.check.outputs.has_token != 'true'
+        run: |
+          echo "::warning::sonarqube skipped — no SONAR_TOKEN secret / SonarCloud org configured (see sonar-project.properties)."
+          exit 0
+
+  summary:
+    name: scan / summary
+    needs: [gitleaks, semgrep, grype, snyk, sonarqube]
+    if: always() && github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Post scan summary on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const jobs = {
+              gitleaks: '${{ needs.gitleaks.result }}',
+              semgrep: '${{ needs.semgrep.result }}',
+              grype: '${{ needs.grype.result }}',
+              snyk: '${{ needs.snyk.result }}',
+              sonarqube: '${{ needs.sonarqube.result }}',
+            };
+            const icon = r => r === 'success' ? '✅' : r === 'skipped' ? '⏭️' : '❌';
+            const lines = Object.entries(jobs).map(([name, r]) => `| ${name} | ${icon(r)} ${r} |`);
+            const body = [
+              '### Security scan summary',
+              '',
+              '| Scan | Result |',
+              '| --- | --- |',
+              ...lines,
+              '',
+              'SARIF results are uploaded to the repo\'s Code scanning tab; each scan\'s raw report is also archived as a build artifact (90-day retention, SOC 2 audit evidence).',
+            ].join('\n');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });

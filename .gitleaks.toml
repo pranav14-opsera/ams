@@ -1,0 +1,25 @@
+title = "ams gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Test fixtures, docs, and CI workflow files that use well-known loopback-only default credentials for ephemeral service containers"
+paths = [
+  '''database/tests/.*''',
+  '''.*\.md$''',
+  '''infrastructure/terraform/.*\.tfvars\.example$''',
+  '''\.github/workflows/database-checks\.yml''',
+]
+
+[[rules]]
+id = "aws-access-key-id"
+description = "AWS Access Key ID"
+regex = '''(A3T[A-Z0-9]|AKIA|AGPA|AIDA|AROA|AIPA|ANPA|ANVA|ASIA)[A-Z0-9]{16}'''
+tags = ["aws", "credentials"]
+
+[[rules]]
+id = "generic-connection-string"
+description = "Connection string with an embedded password"
+regex = '''(?i)(postgres(ql)?|mysql|redis|mongodb)://[^:\s]+:[^@\s]+@[^\s'"]+'''
+tags = ["credentials", "connection-string"]

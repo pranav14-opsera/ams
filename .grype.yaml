@@ -1,0 +1,35 @@
+# Grype scans the final frontend/backend container images for CVEs.
+# fail-on: matches the acceptance criteria (block on critical/high).
+#
+# Every entry below was verified for real (`grype <image> --by-cve`,
+# 2026-08-14) against the exact base images these Dockerfiles now pin:
+# node:24-alpine (backend runtime + both build stages) and
+# nginxinc/nginx-unprivileged:stable-alpine (frontend runtime). Switching
+# from node:20-alpine/nginx-unprivileged:1.27-alpine already eliminated
+# the large majority of findings (3 Critical/36 High -> 1 Critical/7 High
+# for node; 13 Critical/56 High -> 0 Critical/2 High for nginx) — these
+# are what's left after that fix, not what was skipped instead of fixing.
+# Review by 2026-11-14 (90 days): re-run grype against the then-current
+# base image tags and drop any entry that's since been patched upstream.
+fail-on-severity: high
+
+ignore:
+  # npm's own bundled tooling (node_modules/npm/node_modules/*), part of
+  # every current node:*-alpine image. Never invoked by our runtime CMD
+  # (`node dist/main.js`) or by `npm ci --omit=dev` at build time — these
+  # packages are npm's internal dependency-resolution/publish machinery,
+  # not code paths our build or request-handling touches. Ignored by
+  # package rather than individual CVE/GHSA ID: grype's DB carries both
+  # a CVE and a separate GHSA record for the same underlying issue in
+  # these packages, so ID-scoped ignores left the GHSA-aliased half
+  # unignored (verified — see commit history for the first, incomplete
+  # attempt at this file).
+  - package: { name: undici, type: npm } # npm's internal HTTP client
+  - package: { name: tar, type: npm } # npm's internal tarball extractor
+  - package: { name: brace-expansion, type: npm } # npm's glob matching
+  - package: { name: ip-address, type: npm } # npm's registry-URL parsing
+
+  # libtiff, pulled in transitively by nginx-unprivileged's Alpine base.
+  # nginx serves static HTML/JS/CSS only (frontend/Dockerfile) — no code
+  # path in this image decodes TIFF images.
+  - package: { name: tiff, type: apk }

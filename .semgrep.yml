@@ -1,0 +1,36 @@
+# Custom, platform-specific rules. The standard OWASP/TypeScript/Node.js
+# rulesets (p/owasp-top-ten, p/typescript, p/nodejs) are pulled from the
+# Semgrep registry at scan time (see .github/workflows/security-scans.yml)
+# rather than vendored here — this file holds only rules specific to this
+# codebase that the public registry has no way to know about.
+
+rules:
+  - id: raw-sql-missing-tenant-filter
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: >-
+      Raw SQL query with no visible tenant_id reference. Queries against
+      tenant-scoped tables should filter by tenant_id explicitly even
+      though the ams_app role's Postgres RLS policy
+      (database/migrations/006_enable_rls.sql) enforces isolation as a
+      defense-in-depth backstop — an explicit filter also lets the query
+      planner use the tenant_id index instead of relying on RLS to
+      filter every row post-scan.
+    patterns:
+      - pattern: $CLIENT.query($QUERY, ...)
+      - metavariable-regex:
+          metavariable: $CLIENT
+          regex: ^(pool|client|db)$
+      - metavariable-pattern:
+          metavariable: $QUERY
+          patterns:
+            - pattern-not-regex: tenant_id
+    paths:
+      exclude:
+        # Migration runner: DDL + schema_migrations bookkeeping, not
+        # queries against tenant-scoped application tables.
+        - database/migrate.js
+    metadata:
+      category: security
+      references:
+        - database/migrations/006_enable_rls.sql
