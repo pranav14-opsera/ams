@@ -1,0 +1,16 @@
+{
+  "description": "Real AES-256-GCM envelope-encryption sample (WO-015 acceptance criteria: 'sample keys, ciphertext blobs... for CI/CD use'). Generated once with the same primitives InMemoryKmsService uses — not a fabricated shape. Illustrative only: the tenant master key that wrapped encryptedDataKey is intentionally NOT included, so this blob cannot be decrypted standalone. That's the entire point of envelope encryption / BYOK — ciphertext is meaningless without the customer's key, which this repository never holds. Structural fixtures for actual round-trip tests are generated live against InMemoryKmsService in backend/test/encryption/kms-envelope.test.ts, since a real KMS's master key material can't be a static, checked-in fixture.",
+  "sample": {
+    "plaintext_base64": "U2FtcGxlIFBISSBwYXlsb2FkOiBwYXRpZW50X2lkPTEyMzQ1LCBub3RlPSJyb3V0aW5lIGNoZWNrdXAsIG5vIGNvbmNlcm5zIg==",
+    "ciphertext_base64": "VC74VijeUKuJd6WgAe85atXOH72rdhfHXivIx+7B/vNfYvRS7Ra6BTo48C6FZe9VlRU9TZaPvy62L7kGCp8f4o0559KNiD5uvA==",
+    "iv_base64": "zEZ08XqzrftwhZsY",
+    "authTag_base64": "ow75nQuMF9qLaHn/Jb+JQg==",
+    "encryptedDataKey_base64": "WjVkZIaNz7BUxTD0BxBUYhZZ4FcUpCJMeWKbmNQRJyH0+2LgGk9F5y6rREo2hZ8oK+PRK0A1iIErXGYu",
+    "keyVersion": 1
+  },
+  "invalid": [
+    { "case": "tampered ciphertext byte", "reason": "GCM auth tag must reject any single-byte modification to ciphertext" },
+    { "case": "wrong tenant's master key used to unwrap encryptedDataKey", "reason": "unwrap must fail — this is what test_rls-style cross-tenant isolation looks like for encryption instead of row visibility" },
+    { "case": "keyVersion referencing a version the tenant never had", "reason": "decrypt must reject rather than silently using the current version's key" }
+  ]
+}

@@ -18,6 +18,12 @@ paths = [
   # for this fixture (WO-013) — never a real credential. gitleaks' "jwt"
   # rule flags anything shaped like a JWT regardless of what signed it.
   '''backend/test/fixtures/jwt-fixtures\.json''',
+  # Illustrative envelope-encryption ciphertext/IV/authTag/encryptedDataKey
+  # blobs (WO-015) — base64 binary output, not a credential. The master
+  # key that wrapped this DEK is deliberately NOT in the fixture (that's
+  # the whole point of BYOK), so gitleaks' generic-api-key entropy
+  # heuristic is matching meaningless base64 noise, not a real secret.
+  '''backend/test/fixtures/encryption-sample-payloads\.json''',
 ]
 
 [[rules]]

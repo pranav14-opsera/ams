@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { Pool } from "pg";
 import { TenantProvisioningSaga } from "../../src/tenants/tenant-provisioning.saga";
 import { TenantRepository } from "../../src/tenants/tenant.repository";
+import { TenantKeyMetadataRepository } from "../../src/tenants/tenant-key-metadata.repository";
 import { InMemoryKmsService } from "../../src/tenants/ports/in-memory/in-memory-kms.service";
 import { PostgresAuditService } from "../../src/tenants/ports/postgres/postgres-audit.service";
 import { PostgresRbacService } from "../../src/tenants/ports/postgres/postgres-rbac.service";
@@ -31,9 +32,10 @@ test("a tenant provisioned via the saga is genuinely RLS-isolated from another t
 
   const kms = new InMemoryKmsService();
   const repo = new TenantRepository();
+  const keyMetadataRepo = new TenantKeyMetadataRepository();
   const audit = new PostgresAuditService(adminPool);
   const rbac = new PostgresRbacService(adminPool);
-  const saga = new TenantProvisioningSaga(adminPool, repo, kms, rbac, audit);
+  const saga = new TenantProvisioningSaga(adminPool, repo, keyMetadataRepo, kms, rbac, audit);
 
   const slugA = randomSlug();
   const slugB = randomSlug();

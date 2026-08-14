@@ -78,8 +78,28 @@ jobs:
         working-directory: backend
         run: npm run build
 
+      # Real bug found in WO-015: none of this suite's tests exercise
+      # actual NestJS dependency injection (they all construct classes
+      # directly, bypassing the DI container) — a *.module.ts wiring
+      # mistake had no automated check that could catch it. Runs against
+      # the just-built dist/, the same artifact a real deployment runs.
+      - name: Verify DI graph boots (compiled build)
+        working-directory: backend
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+        run: npm run verify-boot
+
       - name: Test
         working-directory: backend
         env:
+          # DATABASE_URL stays the postgres superuser here — several
+          # existing tests (e.g. tenant-rls-integration.test.ts) construct
+          # their OWN ams_app connection FROM this value by swapping the
+          # username, and use the superuser connection deliberately as an
+          # RLS-bypassing ground truth for seeding/assertions. Switching
+          # this whole env var breaks that pattern. WO-015 instead adds a
+          # dedicated test (tenant-provisioning.saga.ams-app.test.ts) that
+          # explicitly connects as ams_app to exercise the saga the way
+          # production actually does — see that file for why this matters.
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
         run: npm test

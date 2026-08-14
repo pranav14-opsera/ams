@@ -5,6 +5,7 @@ import { PG_POOL } from "../common/database/database.module";
 import { AUDIT_SERVICE, type AuditServicePort } from "./ports/audit-service.port";
 import { KMS_SERVICE, type KmsServicePort } from "./ports/kms-service.port";
 import { RBAC_SERVICE, type RbacServicePort } from "./ports/rbac-service.port";
+import { TenantKeyMetadataRepository } from "./tenant-key-metadata.repository";
 import { TenantRepository, type Tenant } from "./tenant.repository";
 
 export class TenantAlreadyExistsError extends Error {
@@ -45,6 +46,7 @@ export class TenantProvisioningSaga {
   constructor(
     @Inject(PG_POOL) private readonly pool: Pool,
     private readonly tenantRepository: TenantRepository,
+    private readonly tenantKeyMetadataRepository: TenantKeyMetadataRepository,
     @Inject(KMS_SERVICE) private readonly kmsService: KmsServicePort,
     @Inject(RBAC_SERVICE) private readonly rbacService: RbacServicePort,
     @Inject(AUDIT_SERVICE) private readonly auditService: AuditServicePort,
@@ -71,6 +73,21 @@ export class TenantProvisioningSaga {
         settings: input.settings ?? {},
       });
 
+      // Real bug found while wiring WO-015's tenant_key_metadata insert
+      // into this saga, running as ams_app (the least-privilege role RLS
+      // actually applies to, not the postgres superuser these queries had
+      // only ever been exercised against before): every INSERT below this
+      // point targets an RLS-enforced table, and a brand-new tenant has no
+      // JWT-derived app.current_tenant yet to satisfy it — the saga is
+      // the one place that has to establish its OWN tenant context, for
+      // the tenant it just created, before it can write anything else.
+      // SET LOCAL (via set_config's third arg) scopes this to the current
+      // transaction, same as every other use of it in this codebase.
+      // This query IS the mechanism that establishes tenant scoping for
+      // every query after it, not a data query that itself needs a
+      // tenant filter.
+      await client.query("SELECT set_config('app.current_tenant', $1, true)", [tenant.id]); // nosemgrep: raw-sql-missing-tenant-filter
+
       await this.verifyRlsActive(client);
 
       // The one non-transactional step — everything before and after
@@ -80,6 +97,8 @@ export class TenantProvisioningSaga {
       keyArn = kmsResult.keyArn;
 
       await this.tenantRepository.updateEncryptionKeyArn(client, tenant.id, keyArn);
+      const keyStatus = await this.kmsService.getKeyStatus(tenant.id);
+      await this.tenantKeyMetadataRepository.create(client, { tenantId: tenant.id, keyArn, rotationDueAt: keyStatus.rotationDueAt });
       await this.rbacService.applyDefaultPolicies(tenant.id, client);
       await this.auditService.recordEvent(
         {

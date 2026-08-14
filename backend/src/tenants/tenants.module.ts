@@ -1,7 +1,6 @@
 import { Module } from "@nestjs/common";
+import { EncryptionModule } from "../encryption/encryption.module";
 import { AUDIT_SERVICE } from "./ports/audit-service.port";
-import { KMS_SERVICE } from "./ports/kms-service.port";
-import { InMemoryKmsService } from "./ports/in-memory/in-memory-kms.service";
 import { PostgresAuditService } from "./ports/postgres/postgres-audit.service";
 import { PostgresRbacService } from "./ports/postgres/postgres-rbac.service";
 import { RBAC_SERVICE } from "./ports/rbac-service.port";
@@ -11,18 +10,19 @@ import { TenantsController } from "./tenants.controller";
 import { TenantsService } from "./tenants.service";
 
 @Module({
+  // KMS_SERVICE (and the mock-vs-real adapter switch) now lives in
+  // EncryptionModule (WO-015) — the saga consumes it from there rather
+  // than TenantsModule providing its own copy.
+  imports: [EncryptionModule],
   controllers: [TenantsController],
   providers: [
     TenantsService,
     TenantProvisioningSaga,
     TenantRepository,
     // audit_events and rbac_policies are real tables in this same
-    // database today — real implementations, not stubs. KMS is
-    // genuinely external and not yet built (WO-015's scope), so it
-    // stays an in-memory stand-in until that lands.
+    // database today — real implementations, not stubs.
     { provide: AUDIT_SERVICE, useClass: PostgresAuditService },
     { provide: RBAC_SERVICE, useClass: PostgresRbacService },
-    { provide: KMS_SERVICE, useClass: InMemoryKmsService },
   ],
   exports: [TenantsService, TenantRepository],
 })
