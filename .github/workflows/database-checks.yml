@@ -57,6 +57,12 @@ jobs:
           PGPASSWORD: postgres
         run: psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f seeds/test_data.sql
 
+      - name: Load WO-014 two-tenant RLS fixture (100+ rows/table/tenant across all 11 tables)
+        working-directory: database
+        env:
+          PGPASSWORD: postgres
+        run: psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f tests/fixtures/rls/seed_two_tenants.sql
+
       # CI-only: gives the ams_app role a password so the test script (which
       # authenticates as ams_app, not postgres) can connect under the
       # container's default password auth. Never part of the checked-in
@@ -67,8 +73,20 @@ jobs:
           PGPASSWORD: postgres
         run: psql -h localhost -U postgres -d postgres -c "ALTER ROLE ams_app PASSWORD 'postgres';"
 
-      - name: Adversarial cross-tenant isolation test
+      - name: Adversarial cross-tenant SELECT isolation test (all 11+ tenant-scoped tables)
         working-directory: database
         env:
           PGPASSWORD: postgres
         run: bash tests/test_rls_isolation.sh localhost 5432 postgres
+
+      - name: Adversarial cross-tenant write-path isolation test (UPDATE/DELETE/INSERT/JOIN/violation trigger)
+        working-directory: database
+        env:
+          PGPASSWORD: postgres
+        run: bash tests/test_rls_write_isolation.sh localhost 5432 postgres
+
+      - name: RLS policy definition verification (RLS+FORCE, canonical policy, guard trigger, composite index)
+        working-directory: database
+        env:
+          PGPASSWORD: postgres
+        run: bash tests/test_rls_policy_definitions.sh localhost 5432 postgres
