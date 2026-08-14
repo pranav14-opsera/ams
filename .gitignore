@@ -18,6 +18,7 @@ override.tf.json
 *_override.tf.json
 .terraformrc
 terraform.rc
+backend.hcl
 
 # Security scan artifacts (transient, uploaded to Opsera separately)
 gitleaks-report.json

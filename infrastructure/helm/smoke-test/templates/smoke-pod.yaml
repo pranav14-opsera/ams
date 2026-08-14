@@ -1,0 +1,66 @@
+{{- range .Values.namespaces }}
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: smoke-test-{{ . }}
+  namespace: {{ . }}
+  labels:
+    app.kubernetes.io/managed-by: helm
+    app.kubernetes.io/component: smoke-test
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": hook-succeeded,hook-failed
+    # CKV_K8S_43 (pin image by digest): this is an ephemeral upstream e2e-test
+    #   image (registry.k8s.io/e2e-test-images/agnhost), deleted immediately
+    #   after each smoke-test run, not a production workload.
+    # CKV2_K8S_6 (NetworkPolicy present): every bounded-context namespace this
+    #   pod deploys into already gets a default-deny NetworkPolicy from the
+    #   kubernetes Terraform module (see namespaces.tf) — checkov can't see
+    #   across the Terraform/Helm boundary to know that.
+    checkov.io/skip1: CKV_K8S_43=ephemeral e2e-test image, digest pinning not warranted
+    checkov.io/skip2: CKV2_K8S_6=NetworkPolicy enforced at namespace level by the kubernetes Terraform module
+spec:
+  restartPolicy: Never
+  automountServiceAccountToken: false
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 10000
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: smoke-test
+      image: {{ $.Values.image }}
+      imagePullPolicy: Always
+      args:
+        - netexec
+        - --http-port={{ $.Values.healthCheckPort }}
+      ports:
+        - containerPort: {{ $.Values.healthCheckPort }}
+      livenessProbe:
+        httpGet:
+          path: /healthz
+          port: {{ $.Values.healthCheckPort }}
+        initialDelaySeconds: 2
+        periodSeconds: 5
+      readinessProbe:
+        httpGet:
+          path: /healthz
+          port: {{ $.Values.healthCheckPort }}
+        initialDelaySeconds: 2
+        periodSeconds: 3
+      resources:
+        requests:
+          cpu: 50m
+          memory: 32Mi
+        limits:
+          cpu: 100m
+          memory: 64Mi
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop:
+            - ALL
+{{- end }}

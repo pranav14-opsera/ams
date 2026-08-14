@@ -1,0 +1,51 @@
+{{- range .Values.namespaces }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: smoke-test-verify-{{ . }}
+  namespace: {{ . }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "1"
+    "helm.sh/hook-delete-policy": hook-succeeded,hook-failed
+    checkov.io/skip1: CKV_K8S_43=ephemeral verify-only image, digest pinning not warranted
+spec:
+  backoffLimit: 2
+  template:
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: verify
+          image: curlimages/curl:8.10.1
+          imagePullPolicy: Always
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+              for path in /healthz; do
+                echo "Checking smoke-test-{{ . }}:{{ $.Values.healthCheckPort }}$path"
+                curl -sf --max-time 5 "http://smoke-test-{{ . }}:{{ $.Values.healthCheckPort }}$path" || exit 1
+              done
+              echo "Namespace {{ . }} smoke test passed."
+          resources:
+            requests:
+              cpu: 25m
+              memory: 16Mi
+            limits:
+              cpu: 50m
+              memory: 32Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+{{- end }}

@@ -1,0 +1,55 @@
+nameOverride: ""
+namespace: ""
+
+image:
+  repository: ""
+  # No default on purpose: every deploying service must pin an explicit,
+  # immutable tag (a commit SHA or semver, never "latest"). The deployment
+  # template fails the render via `required` if this is left unset.
+  tag: ""
+  pullPolicy: IfNotPresent
+
+replicaCount: 2
+
+containerPort: 8080
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+healthCheck:
+  livenessPath: /health/live
+  readinessPath: /health/ready
+  startupPath: /health/startup
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  startupFailureThreshold: 30
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  cpuUtilizationPercent: 70
+  # Kafka-consumer-lag custom metric via the Prometheus adapter. Disabled by
+  # default since not every service is a Kafka consumer.
+  kafkaLag:
+    enabled: false
+    consumerGroup: ""
+    targetAverageValue: "1000"
+
+networkPolicy:
+  enabled: true
+  # List of {namespace, podSelector} pairs this service accepts ingress from,
+  # in addition to the namespace-level allow-from-ingress-nginx rule.
+  allowFrom: []
+
+serviceAccount:
+  create: true
+  annotations: {}
+  # Most services never call the Kubernetes API — leave the token
+  # unmounted unless a service explicitly needs it (e.g. a controller).
+  automountToken: false

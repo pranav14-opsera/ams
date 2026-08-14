@@ -1,0 +1,18 @@
+{{- range .Values.namespaces }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: smoke-test-{{ . }}
+  namespace: {{ . }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": hook-succeeded,hook-failed
+spec:
+  selector:
+    app.kubernetes.io/component: smoke-test
+  ports:
+    - port: {{ $.Values.healthCheckPort }}
+      targetPort: {{ $.Values.healthCheckPort }}
+{{- end }}

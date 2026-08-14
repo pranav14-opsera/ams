@@ -1,0 +1,55 @@
+name: Terraform checks
+
+on:
+  pull_request:
+    paths:
+      - "infrastructure/**"
+  push:
+    branches: [main]
+    paths:
+      - "infrastructure/**"
+
+# Least-privilege default: this workflow only reads the repo to run
+# fmt/validate/tflint, it never needs to write anything.
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: fmt / validate / tflint
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        module:
+          - infrastructure/terraform/bootstrap
+          - infrastructure/terraform/networking
+          - infrastructure/terraform/kubernetes
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.8"
+
+      - name: terraform fmt
+        working-directory: ${{ matrix.module }}
+        run: terraform fmt -check -recursive
+
+      - name: terraform init (no backend)
+        working-directory: ${{ matrix.module }}
+        run: terraform init -backend=false
+
+      - name: terraform validate
+        working-directory: ${{ matrix.module }}
+        run: terraform validate
+
+      - uses: terraform-linters/setup-tflint@v4
+        with:
+          tflint_version: "v0.53.0"
+
+      - name: tflint
+        working-directory: ${{ matrix.module }}
+        run: |
+          tflint --init
+          tflint --recursive

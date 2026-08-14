@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "base-service.name" . }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "base-service.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "base-service.labels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "base-service.labels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "base-service.name" . }}
+      automountServiceAccountToken: {{ .Values.serviceAccount.automountToken }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10000
+        fsGroup: 10000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: {{ include "base-service.name" . }}
+          image: "{{ .Values.image.repository }}:{{ required "image.tag must be set to an explicit, immutable version — \"latest\" is not permitted" .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          ports:
+            - name: http
+              containerPort: {{ .Values.containerPort }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.healthCheck.livenessPath }}
+              port: http
+            initialDelaySeconds: {{ .Values.healthCheck.initialDelaySeconds }}
+            periodSeconds: {{ .Values.healthCheck.periodSeconds }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.healthCheck.readinessPath }}
+              port: http
+            initialDelaySeconds: {{ .Values.healthCheck.initialDelaySeconds }}
+            periodSeconds: {{ .Values.healthCheck.periodSeconds }}
+          startupProbe:
+            httpGet:
+              path: {{ .Values.healthCheck.startupPath }}
+              port: http
+            periodSeconds: {{ .Values.healthCheck.periodSeconds }}
+            failureThreshold: {{ .Values.healthCheck.startupFailureThreshold }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}

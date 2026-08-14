@@ -1,0 +1,11 @@
+namespaces:
+  - identity-access
+  - agent-management
+  - observability
+  - financial
+  - governance
+  - compliance
+
+image: registry.k8s.io/e2e-test-images/agnhost:2.53
+
+healthCheckPort: 8080

@@ -1,0 +1,11 @@
+apiVersion: v2
+name: base-service
+description: >-
+  Standardized base chart for every AMS bounded-context service. Provides a
+  Deployment with health-check probes, a Service, an HPA (CPU + optional
+  Kafka-consumer-lag custom metric), and a NetworkPolicy allowing only the
+  documented inter-service communication paths. Individual services either
+  use this chart directly with a values override, or subchart/inherit from it.
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
