@@ -97,7 +97,7 @@ INSERT INTO abac_policies (tenant_id, name, conditions, effect, priority)
 SELECT
     t.id,
     'Fixture ABAC Policy ' || t.label || ' ' || n,
-    jsonb_build_object('data_classification', (ARRAY['internal', 'confidential', 'phi'])[1 + (n % 3)]),
+    jsonb_build_object('data_classification', (ARRAY['internal', 'confidential', 'restricted'])[1 + (n % 3)]),
     (ARRAY['allow', 'deny'])[1 + (n % 2)],
     100 + n
 FROM generate_series(1, 100) AS n

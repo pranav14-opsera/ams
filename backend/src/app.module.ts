@@ -1,4 +1,5 @@
 import { MiddlewareConsumer, Module, type NestModule } from "@nestjs/common";
+import { ClassificationModule } from "./classification/classification.module";
 import { DatabaseModule } from "./common/database/database.module";
 import { JWT_VERIFIER } from "./common/jwt/jwt-verifier.port";
 import { Rs256JwtVerifier } from "./common/jwt/rs256-jwt-verifier.service";
@@ -7,7 +8,7 @@ import { HealthController } from "./health.controller";
 import { TenantsModule } from "./tenants/tenants.module";
 
 @Module({
-  imports: [DatabaseModule, TenantsModule],
+  imports: [DatabaseModule, ClassificationModule, TenantsModule],
   controllers: [HealthController],
   providers: [
     {

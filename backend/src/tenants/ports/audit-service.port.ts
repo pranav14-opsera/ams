@@ -1,4 +1,5 @@
 import type { PoolClient } from "pg";
+import type { DataClassification } from "../../classification/data-classification.enum";
 
 export const AUDIT_SERVICE = "AUDIT_SERVICE";
 
@@ -9,6 +10,8 @@ export interface AuditEventInput {
   resourceType: string;
   resourceId: string;
   details: Record<string, unknown>;
+  /** Optional — omitting it keeps audit_events' own column DEFAULT ('internal'). Set via DataClassificationTagger (WO-016) wherever a caller has already classified the event being audited. */
+  dataClassification?: DataClassification;
 }
 
 export interface AuditServicePort {
