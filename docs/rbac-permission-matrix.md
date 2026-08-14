@@ -56,6 +56,7 @@ document cannot silently drift from what's actually enforced.
 | user_management:user:deactivate | ✓ | | | | |
 | user_management:role:assign | ✓ | | | | |
 | user_management:group_mapping:manage | ✓ | | | | |
+| user_management:scim_token:manage | ✓ | | | | |
 | tenant_configuration:settings:manage | ✓ | | | | |
 | tenant_configuration:sso:configure | ✓ | | | | |
 | tenant_configuration:mfa_policy:configure | ✓ | | | | |

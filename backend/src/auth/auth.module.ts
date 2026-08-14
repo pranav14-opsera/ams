@@ -75,6 +75,6 @@ import { TokenService } from "./token/token.service";
     // TenantContextMiddleware checks it against.
     { provide: JWT_VERIFIER, useClass: MultiKeyJwtVerifier },
   ],
-  exports: [AuthService, JWT_VERIFIER, JwtKeyService, SessionValidationMiddleware, MfaStepUpGuard],
+  exports: [AuthService, JWT_VERIFIER, JwtKeyService, SessionValidationMiddleware, MfaStepUpGuard, SessionService, GroupRoleMappingRepository],
 })
 export class AuthModule {}
