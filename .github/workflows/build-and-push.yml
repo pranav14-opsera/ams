@@ -1,0 +1,58 @@
+name: Build and push
+
+# Realizes the build/push stages of .forge/pipeline.yaml as executable CI —
+# this environment has no AWS connector authorized for this project (see
+# .forge/pipeline.yaml's header), so the push-to-ECR step is deliberately
+# absent here, not silently stubbed: everything up through `docker build`
+# runs for real; ECR push is future work once a project-specific AWS
+# connector exists.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "frontend/**"
+      - "backend/**"
+  pull_request:
+    paths:
+      - "frontend/**"
+      - "backend/**"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: build (${{ matrix.service }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [frontend, backend]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: ${{ matrix.service }}/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ${{ matrix.service }}
+        run: npm ci
+
+      - name: Typecheck (strict mode — fails the build on any type error)
+        working-directory: ${{ matrix.service }}
+        run: npm run typecheck
+
+      - name: Build
+        working-directory: ${{ matrix.service }}
+        run: npm run build
+
+      - name: Docker build
+        working-directory: ${{ matrix.service }}
+        run: docker build -t ams-${{ matrix.service }}:${{ github.sha }} .
+
+      # Acceptance criteria: build+push under 10 minutes total. This job
+      # covers build; push (ECR) isn't wired yet — see header comment.

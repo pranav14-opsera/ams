@@ -29,6 +29,12 @@ __pycache__/
 # Node
 node_modules/
 
+# Next.js / NestJS build output
+.next/
+out/
+dist/
+*.tsbuildinfo
+
 # Security scan artifacts (transient, uploaded to Opsera separately)
 gitleaks-report.json
 grype-report.json
