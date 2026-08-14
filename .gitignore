@@ -28,12 +28,24 @@ __pycache__/
 
 # Node
 node_modules/
+coverage/
 
 # Next.js / NestJS build output
 .next/
 out/
 dist/
 *.tsbuildinfo
+
+# Sensitive files (WO-011 build-check gate mirrors this list — see
+# scripts/build-checks/validate-commit.sh)
+.env
+.env.*
+*.pem
+*.key
+*.p12
+
+# OS
+.DS_Store
 
 # Security scan artifacts (transient, uploaded to Opsera separately)
 gitleaks-report.json

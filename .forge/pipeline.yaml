@@ -34,6 +34,17 @@ stages:
   - name: build
     depends_on: [source]
     steps:
+      - name: build-check-commit
+        type: build
+        variant: build:policy_check
+        connectorId: null # no connector needed — runs directly in CI
+        description: >-
+          First step in the build stage (WO-011), before any compilation:
+          fails fast if the commit contains a committed node_modules
+          directory or a sensitive file pattern.
+        config:
+          script: scripts/build-checks/validate-commit.sh
+          target_duration_seconds: 30
       - name: build-frontend
         type: build
         variant: build:docker

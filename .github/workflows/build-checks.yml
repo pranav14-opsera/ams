@@ -1,0 +1,29 @@
+name: Build checks
+
+# Realizes .forge/pipeline.yaml's build-check-commit step (WO-011): the
+# first thing that runs in the build stage, before any compilation. Runs
+# on every push/PR regardless of which paths changed — a committed
+# node_modules directory or sensitive file could land anywhere in the
+# repo, not just frontend/backend, so this isn't path-filtered the way
+# build-and-push.yml is.
+
+on:
+  push:
+    branches: [main]
+  pull_request: {}
+
+permissions:
+  contents: read
+
+jobs:
+  validate-commit:
+    name: build / validate-commit
+    runs-on: ubuntu-latest
+    timeout-minutes: 1 # acceptance criteria: completes within 30 seconds
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate commit (no node_modules, no sensitive files, .gitignore complete)
+        run: bash scripts/build-checks/validate-commit.sh HEAD
