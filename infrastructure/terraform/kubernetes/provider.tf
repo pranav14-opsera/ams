@@ -16,3 +16,19 @@ provider "kubernetes" {
     args        = ["eks", "get-token", "--cluster-name", aws_eks_cluster.main.name, "--region", var.region]
   }
 }
+
+# Same auth pattern as the kubernetes provider above — helm_release installs
+# Argo Rollouts and kube-prometheus-stack (argo-rollouts.tf) via this cluster's
+# own EKS token, no separate kubeconfig step required.
+provider "helm" {
+  kubernetes {
+    host                   = aws_eks_cluster.main.endpoint
+    cluster_ca_certificate = base64decode(aws_eks_cluster.main.certificate_authority[0].data)
+
+    exec {
+      api_version = "client.authentication.k8s.io/v1beta1"
+      command     = "aws"
+      args        = ["eks", "get-token", "--cluster-name", aws_eks_cluster.main.name, "--region", var.region]
+    }
+  }
+}

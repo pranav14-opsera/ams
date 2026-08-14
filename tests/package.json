@@ -1,0 +1,22 @@
+{
+  "name": "@ams/deploy-tests",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Post-deployment smoke and API contract tests (WO-010), run against a live environment after each Argo Rollouts promotion.",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "node --test --import tsx tests/*.test.ts",
+    "smoke": "tsx smoke/health-check.ts",
+    "contract": "tsx contract/api-contract.ts"
+  },
+  "dependencies": {
+    "ajv": "^8.17.1",
+    "js-yaml": "^4.1.0"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^22.0.0",
+    "tsx": "^4.23.12",
+    "typescript": "^5.6.0"
+  }
+}

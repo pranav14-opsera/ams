@@ -1,0 +1,46 @@
+{{- if .Values.rollout.enabled }}
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: {{ include "base-service.name" . }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "base-service.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "base-service.labels" . | nindent 6 }}
+  template:
+    {{- include "base-service.podTemplateSpec" . | nindent 4 }}
+  strategy:
+    canary:
+      # Approximate percentage: this cluster has no service mesh / ALB
+      # weighted-target-group setup yet (out of this WO's scope), so
+      # traffic split is via the ratio of canary-to-stable ready replicas
+      # behind the single Service (service.yaml) rather than a precise
+      # request-level percentage. At replicaCount=2 minimum this rounds up
+      # to more than 5% of pods; production values (values-production.yaml)
+      # raise the baseline replica count so 5% of pods is a meaningful,
+      # small fraction of real traffic.
+      steps:
+        - setWeight: {{ .Values.rollout.canary.stepWeightPercent }}
+        - pause:
+            duration: {{ .Values.rollout.canary.pauseMinutes }}m
+        - setWeight: 100
+      analysis:
+        templates:
+          - templateName: {{ include "base-service.name" . }}-canary-analysis
+        # Starts at step index 1 (the pause) and runs for its duration —
+        # any failed measurement during the 15-minute observation window
+        # aborts the rollout automatically, scaling the canary back to 0
+        # and restoring 100% traffic to the previous (stable) version.
+        startingStep: 1
+        args:
+          - name: service-name
+            value: {{ include "base-service.name" . }}
+          - name: namespace
+            value: {{ .Values.namespace }}
+{{- end }}

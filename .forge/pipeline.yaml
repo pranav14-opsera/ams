@@ -162,8 +162,73 @@ stages:
   - name: deploy
     depends_on: [gate]
     description: >-
-      Placeholder — blue-green deployment to Kubernetes is configured in
-      WO-010.
-    steps: []
+      Blue-green/canary deployment via Argo Rollouts (WO-010). Dev deploys
+      straight from main commits with no canary (values-dev.yaml,
+      rollout.enabled=false); staging and production run the full 5%/15min
+      canary with automated Prometheus-backed rollback (values-staging.yaml
+      / values-production.yaml, rollout.enabled=true — see
+      infrastructure/helm/base-service).
+    steps:
+      - name: deploy-guard-concurrent
+        type: deploy
+        variant: deploy:guard
+        connectorId: null
+        condition: target_environment == "production"
+        config:
+          script: scripts/deploy/check-concurrent-deployment.sh
+          # A second production rollout starting while one is already
+          # mid-canary would leave Argo Rollouts with two competing
+          # ReplicaSet transitions — reject outright rather than queue,
+          # so a stuck deployment is visibly stuck, not silently delayed.
+          onConflict: reject
+      - name: deploy-frontend
+        type: deploy
+        variant: deploy:helm
+        connectorId: null # requires an AWS connector authorized for this project's EKS cluster
+        config:
+          chart: infrastructure/helm/base-service
+          release: ams-frontend
+          valuesFiles: ["values.yaml", "values-$TARGET_ENVIRONMENT.yaml"]
+          setValues:
+            image.repository: $ECR_REPO/ams-frontend
+            image.tag: $GIT_SHA_SHORT
+            namespace: agent-management
+      - name: deploy-backend
+        type: deploy
+        variant: deploy:helm
+        connectorId: null
+        config:
+          chart: infrastructure/helm/base-service
+          release: ams-backend
+          valuesFiles: ["values.yaml", "values-$TARGET_ENVIRONMENT.yaml"]
+          setValues:
+            image.repository: $ECR_REPO/ams-backend
+            image.tag: $GIT_SHA_SHORT
+            namespace: agent-management
+      - name: deploy-audit-log
+        type: deploy
+        variant: deploy:audit
+        connectorId: null # publishes to the audit-events Kafka topic (infrastructure/terraform/messaging/kafka) — needs the AWS/MSK connector this environment doesn't have
+        config:
+          script: scripts/deploy/publish-deployment-event.ts
+          # Emitted at each of these lifecycle points by the pipeline runner,
+          # not all at once — this lists every event type this step can emit.
+          events: [start, canary-begin, canary-pass, canary-fail, promote, rollback]
+      - name: deploy-smoke-test
+        type: deploy
+        variant: deploy:verify
+        connectorId: null
+        config:
+          script: tests/smoke/health-check.ts
+          timeout_seconds: 5
+      - name: deploy-contract-test
+        type: deploy
+        variant: deploy:verify
+        connectorId: null
+        config:
+          script: tests/contract/api-contract.ts
+    rollback:
+      trigger: automatic # Argo Rollouts' own AnalysisTemplate-driven abort — see infrastructure/helm/base-service/templates/rollout.yaml
+      max_duration_seconds: 60 # acceptance criteria: rollback completes within 60s
 
 artifact_retention_days: 90 # SOC 2 audit evidence requirement

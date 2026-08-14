@@ -1,0 +1,17 @@
+# Production overrides — post-gate deploys only (.forge/pipeline.yaml gate
+# stage: engineering_lead + security_lead approval required first).
+rollout:
+  enabled: true
+
+autoscaling:
+  enabled: true
+  minReplicas: 6 # 5% of 6 is ~1 pod at the floor; scales up from here under load
+  maxReplicas: 20
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 256Mi
+  limits:
+    cpu: 1000m
+    memory: 1Gi

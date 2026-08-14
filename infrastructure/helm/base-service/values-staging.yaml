@@ -1,0 +1,11 @@
+# Staging overrides — tagged-release deploys (.forge/pipeline.yaml source
+# stage: `event: push, tag: "v*"`). Canary is enabled here so the analysis
+# gate and rollback path are exercised on every release candidate before
+# they ever reach production, not the first time in prod.
+rollout:
+  enabled: true
+
+replicaCount: 4 # 5% of 4 rounds up to 1 pod — smallest meaningful canary slice
+
+autoscaling:
+  enabled: false # fixed size in staging; no real traffic to autoscale against
