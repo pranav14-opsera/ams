@@ -53,8 +53,13 @@ test("saga happy path: provisions tenant, key, RBAC rows, and an audit event", {
     assert.ok(tenant.encryptionKeyArn);
     assert.ok(kms.createdKeys.has(tenant.encryptionKeyArn!));
 
-    const rbacRows = await pool.query("SELECT role FROM rbac_policies WHERE tenant_id = $1", [tenant.id]);
+    const rbacRows = await pool.query("SELECT role, permissions FROM rbac_policies WHERE tenant_id = $1", [tenant.id]);
     assert.equal(rbacRows.rows.length, 5);
+    const adminRow = rbacRows.rows.find((r) => r.role === "platform_admin");
+    assert.ok(
+      adminRow.permissions.includes("agent_management:agent:create"),
+      "WO-023's canonical permission matrix must be copied into rbac_policies at provisioning time, not left as an empty array",
+    );
 
     const auditRows = await pool.query("SELECT action FROM audit_events WHERE tenant_id = $1", [tenant.id]);
     assert.equal(auditRows.rows.length, 1);

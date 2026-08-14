@@ -1,10 +1,8 @@
 import { Inject, Injectable } from "@nestjs/common";
 import type { Pool, PoolClient } from "pg";
 import { PG_POOL } from "../../../common/database/database.module";
+import { ALL_PLATFORM_ROLE_NAMES } from "../../../rbac/rbac.constants";
 import type { RbacServicePort } from "../rbac-service.port";
-
-// Matches rbac_policies' CHECK constraint exactly (database/migrations/010_create_rbac_abac_policies.sql).
-const DEFAULT_ROLES = ["platform_admin", "compliance_officer", "finance_manager", "team_lead", "agent_operator"] as const;
 
 @Injectable()
 export class PostgresRbacService implements RbacServicePort {
@@ -12,14 +10,17 @@ export class PostgresRbacService implements RbacServicePort {
 
   async applyDefaultPolicies(tenantId: string, client?: PoolClient): Promise<void> {
     const executor = client ?? this.pool;
-    // Empty permission set on purpose — WO-023 (Five-Tier Permission
-    // Matrix) defines the actual per-role grants. This step's job is
-    // just to guarantee every tenant has exactly one row per role to
-    // update later, not to invent policy content here.
-    for (const role of DEFAULT_ROLES) {
+    // WO-023's canonical role_permissions matrix is the real source of
+    // truth for what each role starts out able to do — copied in as this
+    // tenant's OWN mutable rbac_policies row, not read live from
+    // role_permissions on every token mint. That keeps a tenant free to
+    // later diverge from the platform default (a future admin-facing
+    // grant editor) without this canonical matrix moving underneath them.
+    for (const role of ALL_PLATFORM_ROLE_NAMES) {
       await executor.query(
         `INSERT INTO rbac_policies (tenant_id, role, permissions)
-         VALUES ($1, $2, '[]'::jsonb)
+         SELECT $1, $2, COALESCE(jsonb_agg(permission_name), '[]'::jsonb)
+         FROM role_permissions WHERE role_name = $2
          ON CONFLICT (tenant_id, role) DO NOTHING`,
         [tenantId, role],
       );
