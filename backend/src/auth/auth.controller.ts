@@ -1,10 +1,16 @@
 import { BadRequestException, Body, Controller, Get, Post, Query, Req } from "@nestjs/common";
 import type { Request } from "express";
 import { AuthService } from "./auth.service";
+import { computeDeviceFingerprint } from "./token/device-fingerprint";
+import { TokenService } from "./token/token.service";
 
 class SamlCallbackDto {
   SAMLResponse!: string;
   RelayState!: string; // carries tenantId — round-tripped through the IdP, standard SAML usage of RelayState
+}
+
+class RefreshTokenDto {
+  refresh_token!: string;
 }
 
 // Pre-authentication endpoints (no platform JWT exists yet — that's the
@@ -12,7 +18,10 @@ class SamlCallbackDto {
 // in app.module.ts, same as the health endpoints.
 @Controller("api/v1/auth")
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly tokenService: TokenService,
+  ) {}
 
   @Post("saml/callback")
   async samlCallback(@Body() body: SamlCallbackDto, @Req() req: Request) {
@@ -20,8 +29,8 @@ export class AuthController {
       throw new BadRequestException("Missing RelayState (tenant identifier).");
     }
     const callbackUrl = this.callbackUrl(req, "saml/callback");
-    const token = await this.authService.handleSamlCallback(body.RelayState, body.SAMLResponse, callbackUrl, req.ip ?? null);
-    return { access_token: token, token_type: "Bearer" };
+    const tokens = await this.authService.handleSamlCallback(body.RelayState, body.SAMLResponse, callbackUrl, req.ip ?? null, req.get("user-agent") ?? "");
+    return this.tokenResponse(tokens);
   }
 
   @Get("oidc/callback")
@@ -30,8 +39,22 @@ export class AuthController {
       throw new BadRequestException("Missing state (tenant identifier).");
     }
     const callbackUrl = this.callbackUrl(req, "oidc/callback");
-    const token = await this.authService.handleOidcCallback(tenantId, code, callbackUrl, req.ip ?? null);
-    return { access_token: token, token_type: "Bearer" };
+    const tokens = await this.authService.handleOidcCallback(tenantId, code, callbackUrl, req.ip ?? null, req.get("user-agent") ?? "");
+    return this.tokenResponse(tokens);
+  }
+
+  @Post("token/refresh")
+  async refresh(@Body() body: RefreshTokenDto, @Req() req: Request) {
+    if (!body.refresh_token) {
+      throw new BadRequestException("Missing refresh_token.");
+    }
+    const deviceFingerprint = computeDeviceFingerprint(req.get("user-agent") ?? "", req.ip ?? "unknown");
+    const tokens = await this.tokenService.refreshTokens(body.refresh_token, deviceFingerprint);
+    return this.tokenResponse(tokens);
+  }
+
+  private tokenResponse(tokens: { accessToken: string; refreshToken: string }) {
+    return { access_token: tokens.accessToken, refresh_token: tokens.refreshToken, token_type: "Bearer" };
   }
 
   private callbackUrl(req: Request, path: string): string {

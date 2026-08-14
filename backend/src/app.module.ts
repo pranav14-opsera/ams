@@ -2,8 +2,6 @@ import { MiddlewareConsumer, Module, type NestModule } from "@nestjs/common";
 import { AuthModule } from "./auth/auth.module";
 import { ClassificationModule } from "./classification/classification.module";
 import { DatabaseModule } from "./common/database/database.module";
-import { JWT_VERIFIER } from "./common/jwt/jwt-verifier.port";
-import { Rs256JwtVerifier } from "./common/jwt/rs256-jwt-verifier.service";
 import { TenantContextMiddleware } from "./common/tenant-context.middleware";
 import { HealthController } from "./health.controller";
 import { PhiScrubberModule } from "./phi-scrubber/phi-scrubber.module";
@@ -12,25 +10,26 @@ import { TenantsModule } from "./tenants/tenants.module";
 @Module({
   imports: [DatabaseModule, ClassificationModule, PhiScrubberModule, AuthModule, TenantsModule],
   controllers: [HealthController],
-  providers: [
-    {
-      provide: JWT_VERIFIER,
-      // The PEM comes from KMS's GetPublicKey against the JWT signing key
-      // (infrastructure/terraform/kms/jwt-signing.tf, WO-003) in deployed
-      // environments — no AWS connector here to fetch it live, so it's an
-      // env var, same connector-gap pattern as the rest of this pipeline.
-      useFactory: () => new Rs256JwtVerifier(process.env.JWT_PUBLIC_KEY_PEM ?? ""),
-    },
-  ],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     consumer
       .apply(TenantContextMiddleware)
-      // saml/callback and oidc/callback are pre-authentication — no
-      // platform JWT exists yet at the point the browser hits them,
-      // that's the entire purpose of the exchange they perform.
-      .exclude("health/live", "health/ready", "api/v1/auth/saml/callback", "api/v1/auth/oidc/callback")
+      // saml/callback, oidc/callback, and token/refresh are all
+      // pre-authentication (or authenticate via something other than a
+      // platform access token — a refresh token, in the last case) — no
+      // valid platform JWT necessarily exists yet at the point the
+      // caller hits any of these, that's the entire purpose of each
+      // exchange. jwks.json is a public key set, deliberately fetchable
+      // without any token at all (WO-019).
+      .exclude(
+        "health/live",
+        "health/ready",
+        "api/v1/auth/saml/callback",
+        "api/v1/auth/oidc/callback",
+        "api/v1/auth/token/refresh",
+        "api/v1/auth/.well-known/jwks.json",
+      )
       .forRoutes("*");
   }
 }
