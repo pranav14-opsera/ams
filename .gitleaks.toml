@@ -10,6 +10,9 @@ paths = [
   '''.*\.md$''',
   '''infrastructure/terraform/.*\.tfvars\.example$''',
   '''\.github/workflows/database-checks\.yml''',
+  # sonar.organization is a public SonarCloud org slug, not a secret —
+  # gitleaks' default generic-api-key entropy heuristic flags it anyway.
+  '''sonar-project\.properties''',
 ]
 
 [[rules]]
