@@ -23,6 +23,9 @@ import { TenantMfaPolicyRepository } from "./mfa/tenant-mfa-policy.repository";
 import { TotpProviderService } from "./mfa/totp-provider.service";
 import { UserMfaConfigRepository } from "./mfa/user-mfa-config.repository";
 import { OidcService } from "./oidc.service";
+import { GroupMappingController } from "./provisioning/group-mapping.controller";
+import { GroupRoleMappingRepository } from "./provisioning/group-role-mapping.repository";
+import { JitProvisioningService } from "./provisioning/jit-provisioning.service";
 import { SamlService } from "./saml.service";
 import { SessionPolicyController } from "./session/session-policy.controller";
 import { SessionService } from "./session/session.service";
@@ -38,7 +41,7 @@ import { TokenService } from "./token/token.service";
 
 @Module({
   imports: [EncryptionModule],
-  controllers: [AuthController, SsoConfigController, JwksController, SessionPolicyController, MfaController, MfaPolicyController],
+  controllers: [AuthController, SsoConfigController, JwksController, SessionPolicyController, MfaController, MfaPolicyController, GroupMappingController],
   providers: [
     AuthService,
     SamlService,
@@ -55,6 +58,8 @@ import { TokenService } from "./token/token.service";
     TotpProviderService,
     UserMfaConfigRepository,
     TenantMfaPolicyRepository,
+    JitProvisioningService,
+    GroupRoleMappingRepository,
     { provide: AUDIT_SERVICE, useClass: PostgresAuditService },
     { provide: RBAC_SERVICE, useClass: PostgresRbacService },
     { provide: IDP_METADATA_CACHE, useClass: InMemoryIdpMetadataCache },

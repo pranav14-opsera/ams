@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger, ServiceUnavailableException, UnauthorizedException } from "@nestjs/common";
+import { ForbiddenException, Inject, Injectable, Logger, ServiceUnavailableException, UnauthorizedException } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
 import type { Pool } from "pg";
 import { PG_POOL } from "../common/database/database.module";
@@ -9,6 +9,7 @@ import { OidcService } from "./oidc.service";
 import { SsoConfigRepository, type TenantSsoConfig } from "./sso-config.repository";
 import { computeDeviceFingerprint } from "./token/device-fingerprint";
 import { TokenService, type TokenPair } from "./token/token.service";
+import { JitProvisioningService } from "./provisioning/jit-provisioning.service";
 
 @Injectable()
 export class AuthService {
@@ -20,6 +21,7 @@ export class AuthService {
     private readonly samlService: SamlService,
     private readonly oidcService: OidcService,
     private readonly tokenService: TokenService,
+    private readonly jitProvisioningService: JitProvisioningService,
     @Inject(AUDIT_SERVICE) private readonly auditService: AuditServicePort,
   ) {}
 
@@ -54,44 +56,26 @@ export class AuthService {
       }
 
       const identity = await validate(config);
-      const userId = await this.resolveUserId(tenantId, identity);
+      const { userId, role } = await this.jitProvisioningService.provisionOrUpdate(tenantId, identity.subject, identity.email, null, identity.groups);
 
-      if (!userId) {
-        await this.recordAuthEvent(tenantId, null, protocol, "failure", ipAddress, correlationId);
-        // Generic 401 — does not reveal whether the SSO exchange itself
-        // failed or simply no matching platform user exists yet (JIT
-        // auto-provisioning is WO-022's separate scope; this WO requires
-        // a pre-existing user record, matched by idp_subject or email).
-        throw new UnauthorizedException("SSO validation failed.");
-      }
-
-      const tokenPair = await this.tokenService.issueTokenPair(userId, tenantId, identity.groups, deviceFingerprint);
+      // The JWT's `roles` claim carries the JIT-resolved platform role
+      // (WO-022), not the raw IdP group names — those are tenant-internal
+      // vocabulary ("clinicians", "org:eng") that the CHECK constraint on
+      // rbac_policies.role would reject, and permission lookup keys off
+      // the platform role. Deny-by-default means an empty array, not the
+      // raw groups, when no mapping matched.
+      const tokenPair = await this.tokenService.issueTokenPair(userId, tenantId, role ? [role] : [], deviceFingerprint);
       await this.recordAuthEvent(tenantId, userId, protocol, "success", ipAddress, correlationId);
       return tokenPair;
     } catch (err) {
-      if (err instanceof UnauthorizedException) {
+      if (err instanceof UnauthorizedException || err instanceof ForbiddenException) {
+        await this.recordAuthEvent(tenantId, null, protocol, "failure", ipAddress, correlationId).catch(() => undefined);
         throw err;
       }
       this.logger.error(`SSO callback failed [${correlationId}] (tenant=${tenantId}, protocol=${protocol}): ${err instanceof Error ? err.stack : err}`);
       await this.recordAuthEvent(tenantId, null, protocol, "failure", ipAddress, correlationId).catch(() => undefined);
       throw new ServiceUnavailableException({ message: "SSO provider unreachable.", correlationId });
     }
-  }
-
-  /** idp_subject match first (a user already linked to this IdP identity), falling back to email (first SSO login for a pre-provisioned user) and backfilling idp_subject. Full JIT auto-creation is WO-022. */
-  private async resolveUserId(tenantId: string, identity: SsoIdentity): Promise<string | null> {
-    const bySubject = await this.pool.query<{ id: string }>("SELECT id FROM users WHERE tenant_id = $1 AND idp_subject = $2", [
-      tenantId,
-      identity.subject,
-    ]);
-    if (bySubject.rows[0]) return bySubject.rows[0].id;
-
-    if (!identity.email) return null;
-    const byEmail = await this.pool.query<{ id: string }>("SELECT id FROM users WHERE tenant_id = $1 AND email = $2", [tenantId, identity.email]);
-    if (!byEmail.rows[0]) return null;
-
-    await this.pool.query("UPDATE users SET idp_subject = $1, last_login_at = now() WHERE id = $2", [identity.subject, byEmail.rows[0].id]);
-    return byEmail.rows[0].id;
   }
 
   private async recordAuthEvent(

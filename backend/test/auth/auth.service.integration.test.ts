@@ -20,6 +20,8 @@ import { TenantKeyMetadataRepository } from "../../src/tenants/tenant-key-metada
 import { InMemoryKmsService } from "../../src/tenants/ports/in-memory/in-memory-kms.service";
 import { PostgresAuditService } from "../../src/tenants/ports/postgres/postgres-audit.service";
 import { PostgresRbacService } from "../../src/tenants/ports/postgres/postgres-rbac.service";
+import { JitProvisioningService } from "../../src/auth/provisioning/jit-provisioning.service";
+import { GroupRoleMappingRepository } from "../../src/auth/provisioning/group-role-mapping.repository";
 import { TenantProvisioningSaga } from "../../src/tenants/tenant-provisioning.saga";
 import { TenantRepository } from "../../src/tenants/tenant.repository";
 import { buildSignedSamlResponse, SAML_IDP_CERT_PEM } from "../fixtures/auth/build-saml-fixture";
@@ -62,13 +64,15 @@ function buildTestRig(pool: Pool) {
   const sessionService = new SessionService(pool, new InMemorySessionStore(), refreshTokenStore, new TenantSessionPolicyRepository(), audit);
   const tokenService = new TokenService(keyService, refreshTokenStore, rbac, audit, sessionService);
   const verifier = new MultiKeyJwtVerifier(keyService);
-  const authService = new AuthService(pool, ssoConfigRepository, samlService, oidcService, tokenService, audit);
-  return { saga, ssoConfigRepository, encryptionService, authService, tokenService, sessionService, verifier };
+  const groupRoleMappingRepository = new GroupRoleMappingRepository();
+  const jitProvisioningService = new JitProvisioningService(pool, groupRoleMappingRepository, audit);
+  const authService = new AuthService(pool, ssoConfigRepository, samlService, oidcService, tokenService, jitProvisioningService, audit);
+  return { saga, ssoConfigRepository, encryptionService, authService, tokenService, sessionService, verifier, groupRoleMappingRepository, pool };
 }
 
 test("end-to-end SAML login: provisioned tenant + pre-existing user -> real signed assertion -> platform token pair issued and audited", { skip }, async () => {
   const pool = new Pool({ connectionString: DATABASE_URL });
-  const { saga, ssoConfigRepository, authService, verifier } = buildTestRig(pool);
+  const { saga, ssoConfigRepository, authService, verifier, groupRoleMappingRepository } = buildTestRig(pool);
   const slug = randomSlug();
 
   try {
@@ -76,6 +80,7 @@ test("end-to-end SAML login: provisioned tenant + pre-existing user -> real sign
 
     const email = `clinician-${randomBytes(4).toString("hex")}@example.com`;
     await pool.query("INSERT INTO users (tenant_id, email, display_name) VALUES ($1, $2, $3)", [tenant.id, email, "Test Clinician"]);
+    await groupRoleMappingRepository.upsert(pool, tenant.id, "clinicians", "agent_operator", 100);
 
     await ssoConfigRepository.upsert(pool, { tenantId: tenant.id, protocol: "saml", samlMetadataUrl: "https://mock-idp.test/metadata", samlEntityId: "ams-platform" });
     await ssoConfigRepository.updateCachedSamlCert(pool, tenant.id, SAML_IDP_CERT_PEM);
@@ -87,7 +92,7 @@ test("end-to-end SAML login: provisioned tenant + pre-existing user -> real sign
     assert.ok(tokens.refreshToken);
     const claims = await verifier.verify(tokens.accessToken);
     assert.equal(claims.tenant_id, tenant.id);
-    assert.deepEqual(claims.roles, ["clinicians"]);
+    assert.deepEqual(claims.roles, ["agent_operator"], "the JWT roles claim carries the JIT-resolved platform role, not the raw IdP group name");
     assert.equal(claims.mfa_verified, false);
 
     const userRow = await pool.query("SELECT id, idp_subject FROM users WHERE tenant_id = $1 AND email = $2", [tenant.id, email]);
@@ -198,9 +203,9 @@ test("a SAML login's access token carries a real session (sid) that SessionValid
   }
 });
 
-test("a valid SAML assertion for a user with NO matching platform user record is rejected generically (401), not treated as an error revealing account existence", { skip }, async () => {
+test("a valid SAML assertion for a user with NO matching platform user record is JIT-provisioned (WO-022), with a deny-by-default NULL role when no group mapping matches", { skip }, async () => {
   const pool = new Pool({ connectionString: DATABASE_URL });
-  const { saga, ssoConfigRepository, authService } = buildTestRig(pool);
+  const { saga, ssoConfigRepository, authService, verifier } = buildTestRig(pool);
   const slug = randomSlug();
 
   try {
@@ -208,19 +213,26 @@ test("a valid SAML assertion for a user with NO matching platform user record is
     await ssoConfigRepository.upsert(pool, { tenantId: tenant.id, protocol: "saml", samlMetadataUrl: "https://mock-idp.test/metadata", samlEntityId: "ams-platform" });
     await ssoConfigRepository.updateCachedSamlCert(pool, tenant.id, SAML_IDP_CERT_PEM);
 
-    const samlResponse = buildSignedSamlResponse({ nameId: "nobody@example.com" });
+    const email = "brand-new-user@example.com";
+    const samlResponse = buildSignedSamlResponse({ nameId: email, groups: ["unmapped-group"] });
 
-    await assert.rejects(
-      () => authService.handleSamlCallback(tenant.id, samlResponse, CALLBACK_URL, IP_ADDRESS, USER_AGENT),
-      (err: any) => {
-        assert.equal(err.getStatus(), 401);
-        assert.equal(err.getResponse().message, "SSO validation failed.");
-        return true;
-      },
-    );
+    const tokens = await authService.handleSamlCallback(tenant.id, samlResponse, CALLBACK_URL, IP_ADDRESS, USER_AGENT);
+    assert.ok(tokens.accessToken);
 
-    const auditRows = await pool.query("SELECT action FROM audit_events WHERE tenant_id = $1 AND action = 'auth.sso.saml.failure'", [tenant.id]);
-    assert.equal(auditRows.rows.length, 1);
+    const claims = await verifier.verify(tokens.accessToken);
+    assert.deepEqual(claims.roles, [], "no group mapping matched, so the role — and therefore the roles claim — is deny-by-default empty");
+
+    const userRow = await pool.query("SELECT idp_subject, provisioned_via, role FROM users WHERE tenant_id = $1 AND email = $2", [tenant.id, email]);
+    assert.equal(userRow.rows.length, 1, "the user must be auto-created via JIT provisioning");
+    assert.equal(userRow.rows[0].idp_subject, email);
+    assert.equal(userRow.rows[0].provisioned_via, "jit");
+    assert.equal(userRow.rows[0].role, null);
+
+    const noRoleMatchedRows = await pool.query("SELECT action FROM audit_events WHERE tenant_id = $1 AND action = 'auth.jit.no_role_matched'", [tenant.id]);
+    assert.equal(noRoleMatchedRows.rows.length, 1);
+
+    const successRows = await pool.query("SELECT action FROM audit_events WHERE tenant_id = $1 AND action = 'auth.sso.saml.success'", [tenant.id]);
+    assert.equal(successRows.rows.length, 1);
   } finally {
     await cleanupTenant(pool, slug);
     await pool.end();
