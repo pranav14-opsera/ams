@@ -16,20 +16,18 @@ resource "helm_release" "argo_rollouts" {
   # Controller-only: this platform doesn't use the Argo Rollouts dashboard UI
   # (kubectl-argo-rollouts CLI / Forge pipeline scripts drive promotion and
   # rollback instead), so the dashboard deployment is skipped.
-  set = [
-    {
-      name  = "dashboard.enabled"
-      value = "false"
-    },
-    {
-      name  = "controller.replicas"
-      value = "2" # HA — a single controller replica is a deploy-pipeline SPOF
-    },
-    {
-      name  = "controller.metrics.enabled"
-      value = "true" # scraped by kube-prometheus-stack below
-    }
-  ]
+  set {
+    name  = "dashboard.enabled"
+    value = "false"
+  }
+  set {
+    name  = "controller.replicas"
+    value = "2" # HA — a single controller replica is a deploy-pipeline SPOF
+  }
+  set {
+    name  = "controller.metrics.enabled"
+    value = "true" # scraped by kube-prometheus-stack below
+  }
 
   depends_on = [aws_eks_node_group.system]
 }
@@ -42,24 +40,22 @@ resource "helm_release" "kube_prometheus_stack" {
   namespace        = "observability"
   create_namespace = true
 
-  set = [
-    {
-      # AMS already has its own CloudWatch-based alerting (see
-      # infrastructure/terraform/cache/redis, database/postgresql); this
-      # stack's Alertmanager is unused — Argo Rollouts' AnalysisTemplates
-      # query Prometheus directly, they don't need Alertmanager routing.
-      name  = "alertmanager.enabled"
-      value = "false"
-    },
-    {
-      name  = "prometheus.prometheusSpec.retention"
-      value = "15d"
-    },
-    {
-      name  = "prometheus.prometheusSpec.serviceMonitorSelectorNilUsesHelmValues"
-      value = "false" # discover ServiceMonitors across all namespaces, not just this release's own
-    }
-  ]
+  # AMS already has its own CloudWatch-based alerting (see
+  # infrastructure/terraform/cache/redis, database/postgresql); this stack's
+  # Alertmanager is unused — Argo Rollouts' AnalysisTemplates query
+  # Prometheus directly, they don't need Alertmanager routing.
+  set {
+    name  = "alertmanager.enabled"
+    value = "false"
+  }
+  set {
+    name  = "prometheus.prometheusSpec.retention"
+    value = "15d"
+  }
+  set {
+    name  = "prometheus.prometheusSpec.serviceMonitorSelectorNilUsesHelmValues"
+    value = "false" # discover ServiceMonitors across all namespaces, not just this release's own
+  }
 
   depends_on = [aws_eks_node_group.system]
 }
