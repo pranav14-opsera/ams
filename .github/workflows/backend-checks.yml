@@ -1,0 +1,85 @@
+name: Backend checks
+
+# Runs backend/'s real test suite (WO-013: tenant provisioning saga,
+# JWT verification, tenant-context middleware, RLS cross-tenant
+# isolation) against an actual PostgreSQL service container — no
+# Docker/testcontainers available in this environment's local dev setup
+# (documented throughout this repo), but GitHub Actions' own service
+# containers work fine and are what CI actually uses.
+
+on:
+  pull_request:
+    paths:
+      - "backend/**"
+      - "database/migrations/**"
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - "database/migrations/**"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: backend / typecheck + test (real Postgres)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install database migration runner
+        working-directory: database
+        run: npm install
+
+      - name: Run migrations
+        working-directory: database
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+        run: npm run migrate
+
+      # ams_app authenticates via IAM/Secrets Manager in deployed
+      # environments — this static password only exists so CI's backend
+      # test suite (which connects as ams_app, the least-privilege role
+      # RLS actually applies to) can authenticate against the container's
+      # default password auth.
+      - name: Set test password for ams_app role
+        env:
+          PGPASSWORD: postgres
+        run: psql -h localhost -U postgres -d postgres -c "ALTER ROLE ams_app PASSWORD 'postgres';"
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Typecheck
+        working-directory: backend
+        run: npm run typecheck
+
+      - name: Build
+        working-directory: backend
+        run: npm run build
+
+      - name: Test
+        working-directory: backend
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+        run: npm test

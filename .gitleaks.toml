@@ -10,9 +10,14 @@ paths = [
   '''.*\.md$''',
   '''infrastructure/terraform/.*\.tfvars\.example$''',
   '''\.github/workflows/database-checks\.yml''',
+  '''\.github/workflows/backend-checks\.yml''',
   # sonar.organization is a public SonarCloud org slug, not a secret —
   # gitleaks' default generic-api-key entropy heuristic flags it anyway.
   '''sonar-project\.properties''',
+  # Test-only JWTs signed with a throwaway RSA key pair generated solely
+  # for this fixture (WO-013) — never a real credential. gitleaks' "jwt"
+  # rule flags anything shaped like a JWT regardless of what signed it.
+  '''backend/test/fixtures/jwt-fixtures\.json''',
 ]
 
 [[rules]]
