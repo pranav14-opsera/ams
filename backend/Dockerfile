@@ -2,7 +2,7 @@
 # dist/ and production node_modules/ in the runtime image (no source, no
 # devDependencies, no build toolchain in the final layer).
 
-FROM node:20-alpine AS build
+FROM node:24-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
@@ -11,7 +11,12 @@ COPY . .
 # — see acceptance criteria: "build fails on any type error".
 RUN npm run build
 
-FROM node:20-alpine AS runtime
+# node:24 (current Active LTS) rather than node:20: grype found 3
+# Critical / 36 High CVEs on node:20-alpine vs. 1 Critical / 7 High on
+# node:24-alpine — see .grype.yaml for the remaining ones (all inside
+# npm's own bundled tooling under node_modules/npm/, never invoked by
+# this image's runtime CMD).
+FROM node:24-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 COPY package.json package-lock.json ./

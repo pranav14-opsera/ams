@@ -1,0 +1,14 @@
+# Snyk policy file — approved exceptions require an explicit expiry and
+# reason. This project has no exceptions yet.
+#
+# NOT YET EXECUTING FOR REAL: Snyk requires a SNYK_TOKEN tied to an
+# account/org authorized for this repo. No such account exists in this
+# environment (see .forge/README.md for the equivalent AWS/GitHub
+# connector gap from WO-007) — same class of gap, disclosed rather than
+# worked around. The security-scans.yml workflow's snyk job is
+# conditioned on `secrets.SNYK_TOKEN` being present: it will start
+# running for real the moment a token is added, with no other changes
+# needed.
+version: v1.5.0
+ignore: {}
+patch: {}

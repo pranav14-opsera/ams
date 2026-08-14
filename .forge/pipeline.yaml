@@ -60,11 +60,60 @@ stages:
   - name: scan
     depends_on: [build]
     description: >-
-      Placeholder — the five parallel security scans are configured in
-      WO-008, accessibility scanning in WO-009. This stage exists in the
-      pipeline graph now so those stories only need to add steps here,
-      not restructure the pipeline.
-    steps: []
+      Five parallel security scans (WO-008); accessibility scanning
+      (WO-009) still lands here as a placeholder. Realized as CI in
+      .github/workflows/security-scans.yml. Any critical/high finding
+      blocks the pipeline.
+    target_duration_minutes: 10
+    steps:
+      - name: scan-gitleaks
+        type: scan
+        variant: scan:secrets
+        connectorId: null # no connector needed — runs directly in CI
+        config:
+          tool: gitleaks
+          scope: full_history # not just the diff
+          configFile: .gitleaks.toml
+          failOn: [critical, high]
+      - name: scan-semgrep
+        type: scan
+        variant: scan:sast
+        connectorId: null
+        config:
+          tool: semgrep
+          rulesets: [p/owasp-top-ten, p/typescript, p/nodejs]
+          customConfig: .semgrep.yml
+          failOn: [critical, high]
+      - name: scan-grype
+        type: scan
+        variant: scan:container
+        connectorId: null
+        config:
+          tool: grype
+          targets: [ams-frontend, ams-backend]
+          configFile: .grype.yaml
+          failOn: [critical, high]
+      - name: scan-snyk
+        type: scan
+        variant: scan:dependencies
+        connectorId: null # requires a Snyk account/org token (SNYK_TOKEN) not present in this environment — see .snyk
+        config:
+          tool: snyk
+          flags: [--all-projects]
+          failOn: [critical, high]
+      - name: scan-sonarqube
+        type: scan
+        variant: scan:quality_gate
+        connectorId: null # requires a SonarCloud org or reachable SonarQube server (SONAR_TOKEN) not present in this environment — see sonar-project.properties
+        config:
+          tool: sonarqube
+          qualityGate:
+            criticalHighHotspots: 0
+            coverageThreshold: 80
+            complexityLimitPerMethod: 15
+    artifacts:
+      formats: [sarif]
+      retention_days: 90
 
   - name: push
     depends_on: [scan]
