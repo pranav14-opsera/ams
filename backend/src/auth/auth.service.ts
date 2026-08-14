@@ -4,10 +4,11 @@ import type { Pool } from "pg";
 import { PG_POOL } from "../common/database/database.module";
 import { DataClassification } from "../classification/data-classification.enum";
 import { AUDIT_SERVICE, type AuditServicePort } from "../tenants/ports/audit-service.port";
-import { JWT_ISSUER, type JwtIssuerPort } from "./jwt/jwt-issuer.port";
 import { SamlService, type SsoIdentity } from "./saml.service";
 import { OidcService } from "./oidc.service";
 import { SsoConfigRepository, type TenantSsoConfig } from "./sso-config.repository";
+import { computeDeviceFingerprint } from "./token/device-fingerprint";
+import { TokenService, type TokenPair } from "./token/token.service";
 
 @Injectable()
 export class AuthService {
@@ -18,25 +19,33 @@ export class AuthService {
     private readonly ssoConfigRepository: SsoConfigRepository,
     private readonly samlService: SamlService,
     private readonly oidcService: OidcService,
-    @Inject(JWT_ISSUER) private readonly jwtIssuer: JwtIssuerPort,
+    private readonly tokenService: TokenService,
     @Inject(AUDIT_SERVICE) private readonly auditService: AuditServicePort,
   ) {}
 
-  async handleSamlCallback(tenantId: string, samlResponse: string, callbackUrl: string, ipAddress: string | null): Promise<string> {
-    return this.handleCallback(tenantId, "saml", ipAddress, (config) => this.samlService.validate(config, samlResponse, callbackUrl));
+  async handleSamlCallback(
+    tenantId: string,
+    samlResponse: string,
+    callbackUrl: string,
+    ipAddress: string | null,
+    userAgent: string,
+  ): Promise<TokenPair> {
+    return this.handleCallback(tenantId, "saml", ipAddress, userAgent, (config) => this.samlService.validate(config, samlResponse, callbackUrl));
   }
 
-  async handleOidcCallback(tenantId: string, code: string, callbackUrl: string, ipAddress: string | null): Promise<string> {
-    return this.handleCallback(tenantId, "oidc", ipAddress, (config) => this.oidcService.validate(config, code, callbackUrl));
+  async handleOidcCallback(tenantId: string, code: string, callbackUrl: string, ipAddress: string | null, userAgent: string): Promise<TokenPair> {
+    return this.handleCallback(tenantId, "oidc", ipAddress, userAgent, (config) => this.oidcService.validate(config, code, callbackUrl));
   }
 
   private async handleCallback(
     tenantId: string,
     protocol: "saml" | "oidc",
     ipAddress: string | null,
+    userAgent: string,
     validate: (config: TenantSsoConfig) => Promise<SsoIdentity>,
-  ): Promise<string> {
+  ): Promise<TokenPair> {
     const correlationId = randomUUID();
+    const deviceFingerprint = computeDeviceFingerprint(userAgent, ipAddress ?? "unknown");
     try {
       const config = await this.ssoConfigRepository.findByTenantId(this.pool, tenantId);
       if (!config || config.protocol !== protocol) {
@@ -56,9 +65,9 @@ export class AuthService {
         throw new UnauthorizedException("SSO validation failed.");
       }
 
-      const token = await this.jwtIssuer.issue({ sub: userId, tenant_id: tenantId, groups: identity.groups, idp_type: protocol });
+      const tokenPair = await this.tokenService.issueTokenPair(userId, tenantId, identity.groups, deviceFingerprint);
       await this.recordAuthEvent(tenantId, userId, protocol, "success", ipAddress, correlationId);
-      return token;
+      return tokenPair;
     } catch (err) {
       if (err instanceof UnauthorizedException) {
         throw err;

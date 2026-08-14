@@ -10,6 +10,10 @@ export class InMemoryRbacService implements RbacServicePort {
   async applyDefaultPolicies(tenantId: string): Promise<void> {
     this.appliedTenantIds.push(tenantId);
   }
+
+  async getPermissionsForRoles(): Promise<string[]> {
+    return [];
+  }
 }
 
 export { DEFAULT_ROLES };

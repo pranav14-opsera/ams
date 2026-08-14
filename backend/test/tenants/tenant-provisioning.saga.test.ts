@@ -101,6 +101,7 @@ test("saga rolls back the DB transaction AND compensates the KMS key when a late
     applyDefaultPolicies: async () => {
       throw new Error("simulated RBAC service outage");
     },
+    getPermissionsForRoles: async () => [],
   };
   const saga = new TenantProvisioningSaga(pool, repo, keyMetadataRepo, kms, failingRbac, audit);
 

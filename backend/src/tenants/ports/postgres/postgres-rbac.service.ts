@@ -25,4 +25,14 @@ export class PostgresRbacService implements RbacServicePort {
       );
     }
   }
+
+  async getPermissionsForRoles(tenantId: string, roles: string[]): Promise<string[]> {
+    if (roles.length === 0) return [];
+    const result = await this.pool.query<{ permission: string }>(
+      `SELECT jsonb_array_elements_text(permissions) AS permission
+       FROM rbac_policies WHERE tenant_id = $1 AND role = ANY($2)`,
+      [tenantId, roles],
+    );
+    return [...new Set(result.rows.map((r) => r.permission))];
+  }
 }
