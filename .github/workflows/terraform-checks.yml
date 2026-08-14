@@ -30,6 +30,7 @@ jobs:
           - infrastructure/terraform/modules/byok-grant
           - infrastructure/terraform/database/postgresql
           - infrastructure/terraform/cache/redis
+          - infrastructure/terraform/messaging/kafka
     steps:
       - uses: actions/checkout@v4
 
