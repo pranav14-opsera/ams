@@ -1,0 +1,53 @@
+{
+  "description": "Illustrative JWT claim shapes for each of the 5 canonical roles, for use as literal objects in RbacGuard unit tests (RbacGuard reads req.roles/req.permissions directly, already populated by TenantContextMiddleware from a verified token — these fixtures are NOT real signed JWTs, since a genuinely signed token is time/key-bound and this codebase's convention (see test/fixtures/mfa, test/fixtures/auth) is to generate real signed tokens fresh per test run rather than replay a static one.",
+  "platform_admin": {
+    "sub": "00000000-0000-0000-0000-0000000000a1",
+    "tid": "00000000-0000-0000-0000-00000000ffff",
+    "sid": "session-admin-1",
+    "roles": ["platform_admin"],
+    "permissions": ["agent_management:agent:create", "agent_management:agent:delete", "user_management:role:assign", "tenant_configuration:rbac:manage"],
+    "mfa_verified": false
+  },
+  "team_lead": {
+    "sub": "00000000-0000-0000-0000-0000000000a2",
+    "tid": "00000000-0000-0000-0000-00000000ffff",
+    "sid": "session-lead-1",
+    "roles": ["team_lead"],
+    "permissions": ["agent_management:agent:read", "agent_management:agent:update", "agent_management:agent:trigger", "credit_management:consumption:view_team"],
+    "team_id": "00000000-0000-0000-0000-0000000000b1",
+    "mfa_verified": false
+  },
+  "agent_operator": {
+    "sub": "00000000-0000-0000-0000-0000000000a3",
+    "tid": "00000000-0000-0000-0000-00000000ffff",
+    "sid": "session-operator-1",
+    "roles": ["agent_operator"],
+    "permissions": ["agent_management:agent:trigger", "agent_management:trace:view_assigned", "credit_management:consumption:view_personal"],
+    "team_id": "00000000-0000-0000-0000-0000000000b1",
+    "mfa_verified": false
+  },
+  "finance_manager": {
+    "sub": "00000000-0000-0000-0000-0000000000a4",
+    "tid": "00000000-0000-0000-0000-00000000ffff",
+    "sid": "session-finance-1",
+    "roles": ["finance_manager"],
+    "permissions": ["credit_management:allocation:manage", "credit_management:budget:configure", "credit_management:forecast:view"],
+    "mfa_verified": false
+  },
+  "compliance_officer": {
+    "sub": "00000000-0000-0000-0000-0000000000a5",
+    "tid": "00000000-0000-0000-0000-00000000ffff",
+    "sid": "session-compliance-1",
+    "roles": ["compliance_officer"],
+    "permissions": ["audit_access:logs:view_org", "audit_access:phi_monitoring:view", "data_retention:policy:manage"],
+    "mfa_verified": false
+  },
+  "no_role_assigned": {
+    "sub": "00000000-0000-0000-0000-0000000000a6",
+    "tid": "00000000-0000-0000-0000-00000000ffff",
+    "sid": "session-unassigned-1",
+    "roles": [],
+    "permissions": [],
+    "mfa_verified": false
+  }
+}

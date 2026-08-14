@@ -3,6 +3,8 @@ import type { Request } from "express";
 import type { Pool } from "pg";
 import { PG_POOL } from "../common/database/database.module";
 import { EncryptionService } from "../encryption/encryption.service";
+import { PermissionName } from "../rbac/rbac.constants";
+import { RequirePermission } from "../rbac/require-permission.decorator";
 import { AUDIT_SERVICE, type AuditServicePort } from "../tenants/ports/audit-service.port";
 import { ConfigureSsoDto } from "./dto/configure-sso.dto";
 import { IdpMetadataService } from "./idp-metadata.service";
@@ -19,6 +21,7 @@ export class SsoConfigController {
   ) {}
 
   @Post("configure")
+  @RequirePermission(PermissionName.TENANT_SSO_CONFIGURE)
   async configure(@Param("tenantId") tenantId: string, @Body() dto: ConfigureSsoDto, @Req() req: Request) {
     this.requireOwnTenant(tenantId, req);
 
@@ -55,6 +58,7 @@ export class SsoConfigController {
   }
 
   @Get("config")
+  @RequirePermission(PermissionName.TENANT_SSO_CONFIGURE)
   async getConfig(@Param("tenantId") tenantId: string, @Req() req: Request) {
     this.requireOwnTenant(tenantId, req);
     const config = await this.ssoConfigRepository.findByTenantId(this.pool, tenantId);
