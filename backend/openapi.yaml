@@ -1,0 +1,38 @@
+openapi: "3.0.3"
+info:
+  title: Agent Management Service — Backend
+  version: "0.1.0"
+  description: >-
+    Grows with each domain WO (WO-013 tenant API, WO-018 auth, etc.) — today
+    it covers only the health endpoints this scaffold actually exposes.
+paths:
+  /health/live:
+    get:
+      operationId: getHealthLive
+      responses:
+        "200":
+          description: Process is alive
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    enum: [ok]
+  /health/ready:
+    get:
+      operationId: getHealthReady
+      responses:
+        "200":
+          description: Process is ready to serve traffic
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    enum: [ok]

@@ -1,0 +1,38 @@
+{{- if .Values.rollout.enabled }}
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: {{ include "base-service.name" . }}-canary-analysis
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "base-service.labels" . | nindent 4 }}
+spec:
+  args:
+    - name: service-name
+    - name: namespace
+  metrics:
+    # Rollback trigger 1/2: error rate > 1% (acceptance criteria).
+    - name: error-rate
+      interval: {{ .Values.rollout.analysis.intervalMinutes }}m
+      count: {{ .Values.rollout.canary.pauseMinutes }} # one measurement per interval across the whole pause window
+      failureLimit: {{ .Values.rollout.analysis.failureLimit }}
+      successCondition: "result[0] <= {{ .Values.rollout.analysis.maxErrorRate }}"
+      provider:
+        prometheus:
+          address: {{ .Values.rollout.analysis.prometheusAddress }}
+          query: |
+            sum(rate(http_requests_total{namespace="{{`{{args.namespace}}`}}", service="{{`{{args.service-name}}`}}", status=~"5.."}[{{ .Values.rollout.analysis.intervalMinutes }}m]))
+            /
+            clamp_min(sum(rate(http_requests_total{namespace="{{`{{args.namespace}}`}}", service="{{`{{args.service-name}}`}}"}[{{ .Values.rollout.analysis.intervalMinutes }}m])), 1)
+    # Rollback trigger 2/2: P95 latency > 500ms (acceptance criteria).
+    - name: latency-p95
+      interval: {{ .Values.rollout.analysis.intervalMinutes }}m
+      count: {{ .Values.rollout.canary.pauseMinutes }}
+      failureLimit: {{ .Values.rollout.analysis.failureLimit }}
+      successCondition: "result[0] <= {{ .Values.rollout.analysis.maxLatencyP95Ms }}"
+      provider:
+        prometheus:
+          address: {{ .Values.rollout.analysis.prometheusAddress }}
+          query: |
+            histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{namespace="{{`{{args.namespace}}`}}", service="{{`{{args.service-name}}`}}"}[{{ .Values.rollout.analysis.intervalMinutes }}m])) by (le)) * 1000
+{{- end }}

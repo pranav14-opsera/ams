@@ -1,0 +1,88 @@
+name: Deploy pipeline checks
+
+# Verifies everything WO-010 added that CAN run without a live EKS cluster:
+# the Helm charts render correctly in both plain-Deployment and
+# Argo-Rollouts-canary modes, and the deploy/smoke/contract scripts
+# typecheck and pass their unit tests. The actual canary/rollback behavior
+# needs a real cluster + Prometheus + AWS connector this environment
+# doesn't have (see infrastructure/terraform/kubernetes/argo-rollouts.tf
+# and .forge/pipeline.yaml's deploy stage) — verified locally instead by
+# rendering real templates and running real (mocked-transport) unit tests.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "infrastructure/helm/**"
+      - "scripts/deploy/**"
+      - "tests/**"
+      - "backend/openapi.yaml"
+  pull_request:
+    paths:
+      - "infrastructure/helm/**"
+      - "scripts/deploy/**"
+      - "tests/**"
+      - "backend/openapi.yaml"
+
+permissions:
+  contents: read
+
+jobs:
+  helm-lint:
+    name: helm / lint+template (${{ matrix.chart }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    strategy:
+      matrix:
+        chart: [base-service, smoke-test]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.16.4
+
+      - name: Lint
+        working-directory: infrastructure/helm/${{ matrix.chart }}
+        run: helm lint . --set image.repository=test --set image.tag=abc123 --set namespace=test-ns
+
+      - name: Template (plain Deployment)
+        if: matrix.chart == 'base-service'
+        working-directory: infrastructure/helm/${{ matrix.chart }}
+        run: helm template test . --set image.repository=test --set image.tag=abc123 --set namespace=test-ns
+
+      - name: Template (Argo Rollouts canary — staging profile)
+        if: matrix.chart == 'base-service'
+        working-directory: infrastructure/helm/${{ matrix.chart }}
+        run: helm template test . -f values.yaml -f values-staging.yaml --set image.repository=test --set image.tag=abc123 --set namespace=test-ns
+
+      - name: Template (Argo Rollouts canary — production profile)
+        if: matrix.chart == 'base-service'
+        working-directory: infrastructure/helm/${{ matrix.chart }}
+        run: helm template test . -f values.yaml -f values-production.yaml --set image.repository=test --set image.tag=abc123 --set namespace=test-ns
+
+  deploy-scripts:
+    name: deploy-scripts / typecheck+test (${{ matrix.project }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    strategy:
+      matrix:
+        project: [scripts/deploy, tests]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: ${{ matrix.project }}/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ${{ matrix.project }}
+        run: npm ci
+
+      - name: Typecheck
+        working-directory: ${{ matrix.project }}
+        run: npm run typecheck
+
+      - name: Unit tests
+        working-directory: ${{ matrix.project }}
+        run: npm test

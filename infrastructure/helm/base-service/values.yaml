@@ -53,3 +53,20 @@ serviceAccount:
   # Most services never call the Kubernetes API — leave the token
   # unmounted unless a service explicitly needs it (e.g. a controller).
   automountToken: false
+
+# Blue-green/canary deployment via Argo Rollouts (WO-010). Disabled by
+# default (plain Deployment, templates/deployment.yaml) — dev environments
+# have no need for canary analysis on every save. Production values
+# (values-production.yaml) turn this on.
+rollout:
+  enabled: false
+  canary:
+    stepWeightPercent: 5 # acceptance criteria: 5% canary traffic
+    pauseMinutes: 15 # acceptance criteria: 15-minute observation window
+  analysis:
+    # In-cluster kube-prometheus-stack Prometheus (infrastructure/terraform/kubernetes/argo-rollouts.tf).
+    prometheusAddress: http://kube-prometheus-stack-prometheus.observability.svc.cluster.local:9090
+    maxErrorRate: 0.01 # acceptance criteria: rollback if error rate > 1%
+    maxLatencyP95Ms: 500 # acceptance criteria: rollback if P95 latency > 500ms
+    intervalMinutes: 1
+    failureLimit: 1 # abort on the first failed measurement — no tolerance for a flapping metric during canary

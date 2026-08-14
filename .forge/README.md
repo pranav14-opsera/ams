@@ -2,7 +2,29 @@
 
 `pipeline.yaml` is the pipeline's source of truth: source → build → scan
 (gitleaks/semgrep/grype/snyk/sonarqube — WO-008; axe-core — WO-009) →
-push → gate → deploy (placeholder, WO-010).
+push → gate → deploy (blue-green/canary via Argo Rollouts — WO-010).
+
+## Blue-green/canary deployment (WO-010)
+
+`infrastructure/terraform/kubernetes/argo-rollouts.tf` installs the Argo
+Rollouts controller and kube-prometheus-stack (the canary analysis metrics
+source) via `helm_release`. `infrastructure/helm/base-service` gains a
+`rollout.enabled` toggle: off (default, `templates/deployment.yaml`) is a
+plain Deployment; on (`values-staging.yaml`/`values-production.yaml`)
+renders an Argo Rollouts `Rollout` + `AnalysisTemplate`
+(`templates/rollout.yaml`/`templates/analysistemplate.yaml`) implementing
+the acceptance criteria's canary steps exactly: 5% weight, a 15-minute
+pause with a background Prometheus analysis (error rate > 1% or P95
+latency > 500ms aborts and rolls back automatically), then 100%.
+`scripts/deploy/` and `tests/` hold the pipeline's own supporting scripts:
+a concurrent-deployment guard, a deployment-lifecycle event publisher
+(audit-events Kafka topic), and post-deploy smoke/contract tests.
+
+Same connector gap as everywhere else in this pipeline: there's no
+AWS-authorized cluster to actually run a canary or rollback against.
+Verified instead with real, local execution wherever the tooling allows —
+see each component's own verification notes in its commit — rather than
+just asserting the YAML is correct.
 
 ## Accessibility scanning (WO-009)
 
