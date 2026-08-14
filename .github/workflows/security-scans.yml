@@ -34,6 +34,7 @@ jobs:
       - name: Run gitleaks (full history)
         uses: gitleaks/gitleaks-action@v2
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # required by gitleaks-action v2 to scan pull_request events
           GITLEAKS_CONFIG: .gitleaks.toml
           GITLEAKS_REPORT_FORMAT: sarif
           GITLEAKS_REPORT_PATH: gitleaks.sarif

@@ -185,15 +185,17 @@ resource "aws_lambda_function" "secret_rotation" {
   ]
 }
 
+# Confused-deputy protection: Secrets Manager can only invoke this function
+# on behalf of this account. A single Lambda serves all secrets in
+# managed_secrets, so unlike a single-secret setup this can't be scoped
+# further to one secret's source_arn — source_account is AWS's documented
+# mitigation for exactly this multi-resource case.
+# nosemgrep: terraform.aws.security.aws-lambda-permission-unrestricted-source-arn.aws-lambda-permission-unrestricted-source-arn
 resource "aws_lambda_permission" "allow_secretsmanager" {
-  statement_id  = "AllowSecretsManagerInvoke"
-  action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.secret_rotation.function_name
-  principal     = "secretsmanager.amazonaws.com"
-  # Confused-deputy protection: Secrets Manager can only invoke this
-  # function on behalf of this account. A single Lambda serves all secrets
-  # in managed_secrets, so unlike a single-secret setup this can't be
-  # scoped further to one secret's source_arn.
+  statement_id   = "AllowSecretsManagerInvoke"
+  action         = "lambda:InvokeFunction"
+  function_name  = aws_lambda_function.secret_rotation.function_name
+  principal      = "secretsmanager.amazonaws.com"
   source_account = data.aws_caller_identity.current.account_id
 }
 
