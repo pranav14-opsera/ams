@@ -1,0 +1,32 @@
+{
+  "public": [
+    { "resourceType": "system_status", "fields": { "uptime_seconds": 12345 } }
+  ],
+  "internal": [
+    { "resourceType": "agent", "fields": { "name": "billing-agent", "framework": "langchain" } },
+    { "resourceType": "team", "fields": { "name": "Platform Team" } }
+  ],
+  "confidential": [
+    { "resourceType": "credit_transaction", "fields": { "amount": 42.5, "entry_type": "debit" } },
+    { "resourceType": "rbac_policy", "fields": { "role": "team_lead" } }
+  ],
+  "restricted": [
+    { "resourceType": "health_record", "fields": { "note": "routine checkup" } },
+    { "resourceType": "patient_note", "fields": { "text": "no concerns" } }
+  ],
+  "unknown_defaults_to_confidential": [
+    { "resourceType": "some_new_type_nobody_classified_yet", "fields": {} }
+  ],
+  "mixed_tier_edge_cases": [
+    {
+      "case": "an otherwise-internal resource carrying a restricted-looking field name must still classify as restricted",
+      "payload": { "resourceType": "agent", "fields": { "name": "intake-agent", "patient_id": "12345" } },
+      "expectedTier": "restricted"
+    },
+    {
+      "case": "an explicit declaration lower than the structural signal must NOT downgrade — restricted resource type wins even if the caller mistakenly declared internal",
+      "payload": { "resourceType": "health_record", "declaredClassification": "internal", "fields": {} },
+      "expectedTier": "restricted"
+    }
+  ]
+}
