@@ -12,6 +12,9 @@ import { MultiKeyJwtVerifier } from "../../src/auth/jwt/multi-key-jwt-verifier.s
 import { TokenService } from "../../src/auth/token/token.service";
 import { InMemoryRefreshTokenStore } from "../../src/auth/token/in-memory-refresh-token-store.service";
 import { computeDeviceFingerprint } from "../../src/auth/token/device-fingerprint";
+import { SessionService } from "../../src/auth/session/session.service";
+import { InMemorySessionStore } from "../../src/auth/session/in-memory-session-store.service";
+import { TenantSessionPolicyRepository } from "../../src/auth/session/tenant-session-policy.repository";
 import { EncryptionService } from "../../src/encryption/encryption.service";
 import { TenantKeyMetadataRepository } from "../../src/tenants/tenant-key-metadata.repository";
 import { InMemoryKmsService } from "../../src/tenants/ports/in-memory/in-memory-kms.service";
@@ -56,10 +59,11 @@ function buildTestRig(pool: Pool) {
   const oidcService = new OidcService(encryptionService);
   const keyService = new JwtKeyService();
   const refreshTokenStore = new InMemoryRefreshTokenStore();
-  const tokenService = new TokenService(keyService, refreshTokenStore, rbac, audit);
+  const sessionService = new SessionService(pool, new InMemorySessionStore(), refreshTokenStore, new TenantSessionPolicyRepository(), audit);
+  const tokenService = new TokenService(keyService, refreshTokenStore, rbac, audit, sessionService);
   const verifier = new MultiKeyJwtVerifier(keyService);
   const authService = new AuthService(pool, ssoConfigRepository, samlService, oidcService, tokenService, audit);
-  return { saga, ssoConfigRepository, encryptionService, authService, tokenService, verifier };
+  return { saga, ssoConfigRepository, encryptionService, authService, tokenService, sessionService, verifier };
 }
 
 test("end-to-end SAML login: provisioned tenant + pre-existing user -> real signed assertion -> platform token pair issued and audited", { skip }, async () => {
@@ -158,6 +162,36 @@ test("a full refresh cycle: the SAML-issued refresh token rotates into a new tok
 
     const auditRows = await pool.query("SELECT action FROM audit_events WHERE tenant_id = $1 AND action = 'auth.token.refreshed'", [tenant.id]);
     assert.equal(auditRows.rows.length, 1);
+  } finally {
+    await cleanupTenant(pool, slug);
+    await pool.end();
+  }
+});
+
+test("a SAML login's access token carries a real session (sid) that SessionValidationMiddleware honors, and rejects once force-logged-out", { skip }, async () => {
+  const pool = new Pool({ connectionString: DATABASE_URL });
+  const { saga, ssoConfigRepository, authService, verifier, sessionService } = buildTestRig(pool);
+  const slug = randomSlug();
+
+  try {
+    const tenant = await saga.provision({ name: "Session Integration Co", slug, dataResidencyRegion: "us", actorId: null });
+    const email = `clinician-${randomBytes(4).toString("hex")}@example.com`;
+    await pool.query("INSERT INTO users (tenant_id, email, display_name) VALUES ($1, $2, $3)", [tenant.id, email, "Test Clinician"]);
+    await ssoConfigRepository.upsert(pool, { tenantId: tenant.id, protocol: "saml", samlMetadataUrl: "https://mock-idp.test/metadata", samlEntityId: "ams-platform" });
+    await ssoConfigRepository.updateCachedSamlCert(pool, tenant.id, SAML_IDP_CERT_PEM);
+
+    const samlResponse = buildSignedSamlResponse({ nameId: email, groups: ["clinicians"] });
+    const tokens = await authService.handleSamlCallback(tenant.id, samlResponse, CALLBACK_URL, IP_ADDRESS, USER_AGENT);
+    const claims = await verifier.verify(tokens.accessToken);
+    const sessionId = claims.sid as string;
+    assert.ok(sessionId);
+
+    // The session genuinely exists and validates — proves `sid` isn't
+    // just an opaque claim, it names a real, checkable session.
+    await sessionService.validateSession(sessionId);
+
+    await sessionService.invalidateSession(sessionId, "admin_force_logout");
+    await assert.rejects(() => sessionService.validateSession(sessionId));
   } finally {
     await cleanupTenant(pool, slug);
     await pool.end();

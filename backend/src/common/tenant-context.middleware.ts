@@ -10,6 +10,8 @@ declare module "express-serve-static-core" {
     tenantDbClient?: PoolClient;
     tenantId?: string;
     actorId?: string;
+    /** The `sid` claim (WO-019/020) — undefined for a token minted before session support existed, or one that genuinely has no session (there is none today; every token issuance goes through TokenService, which always creates one). */
+    sessionId?: string;
   }
 }
 
@@ -84,6 +86,7 @@ export class TenantContextMiddleware implements NestMiddleware {
     req.tenantDbClient = client;
     req.tenantId = claims.tenant_id;
     req.actorId = claims.sub;
+    req.sessionId = typeof claims.sid === "string" ? claims.sid : undefined;
 
     res.on("finish", () => {
       const commitOrRollback = res.statusCode >= 500 ? "ROLLBACK" : "COMMIT";

@@ -15,6 +15,12 @@ import { JwksController } from "./jwt/jwks.controller";
 import { MultiKeyJwtVerifier } from "./jwt/multi-key-jwt-verifier.service";
 import { OidcService } from "./oidc.service";
 import { SamlService } from "./saml.service";
+import { SessionPolicyController } from "./session/session-policy.controller";
+import { SessionService } from "./session/session.service";
+import { SessionValidationMiddleware } from "./session/session-validation.middleware";
+import { SESSION_STORE } from "./session/session-store.port";
+import { InMemorySessionStore } from "./session/in-memory-session-store.service";
+import { TenantSessionPolicyRepository } from "./session/tenant-session-policy.repository";
 import { SsoConfigController } from "./sso-config.controller";
 import { SsoConfigRepository } from "./sso-config.repository";
 import { REFRESH_TOKEN_STORE } from "./token/refresh-token-store.port";
@@ -23,12 +29,15 @@ import { TokenService } from "./token/token.service";
 
 @Module({
   imports: [EncryptionModule],
-  controllers: [AuthController, SsoConfigController, JwksController],
+  controllers: [AuthController, SsoConfigController, JwksController, SessionPolicyController],
   providers: [
     AuthService,
     SamlService,
     OidcService,
     TokenService,
+    SessionService,
+    SessionValidationMiddleware,
+    TenantSessionPolicyRepository,
     SsoConfigRepository,
     IdpMetadataService,
     JwtKeyService,
@@ -36,6 +45,7 @@ import { TokenService } from "./token/token.service";
     { provide: RBAC_SERVICE, useClass: PostgresRbacService },
     { provide: IDP_METADATA_CACHE, useClass: InMemoryIdpMetadataCache },
     { provide: REFRESH_TOKEN_STORE, useClass: InMemoryRefreshTokenStore },
+    { provide: SESSION_STORE, useClass: InMemorySessionStore },
     // WO-019 supersedes WO-018/WO-013's static-single-key JWT_VERIFIER:
     // JwtKeyService is the one shared instance that both signs (via
     // TokenService) and verifies (via MultiKeyJwtVerifier) — provided
@@ -45,6 +55,6 @@ import { TokenService } from "./token/token.service";
     // TenantContextMiddleware checks it against.
     { provide: JWT_VERIFIER, useClass: MultiKeyJwtVerifier },
   ],
-  exports: [AuthService, JWT_VERIFIER, JwtKeyService],
+  exports: [AuthService, JWT_VERIFIER, JwtKeyService, SessionValidationMiddleware],
 })
 export class AuthModule {}

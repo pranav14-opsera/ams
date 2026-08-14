@@ -2,6 +2,7 @@ import { Inject, Injectable, UnauthorizedException } from "@nestjs/common";
 import { randomBytes } from "node:crypto";
 import { AUDIT_SERVICE, type AuditServicePort } from "../../tenants/ports/audit-service.port";
 import { RBAC_SERVICE, type RbacServicePort } from "../../tenants/ports/rbac-service.port";
+import { SessionService } from "../session/session.service";
 import { JwtKeyService } from "../jwt/jwt-key.service";
 import { REFRESH_TOKEN_STORE, type RefreshTokenStorePort } from "./refresh-token-store.port";
 
@@ -20,12 +21,15 @@ export class TokenService {
     @Inject(REFRESH_TOKEN_STORE) private readonly refreshTokenStore: RefreshTokenStorePort,
     @Inject(RBAC_SERVICE) private readonly rbacService: RbacServicePort,
     @Inject(AUDIT_SERVICE) private readonly auditService: AuditServicePort,
+    private readonly sessionService: SessionService,
   ) {}
 
+  /** A fresh login: creates a new session (WO-020) alongside the token pair — the session IS the authenticated state these tokens reference. */
   async issueTokenPair(userId: string, tenantId: string, roles: string[], deviceFingerprint: string, mfaVerified = false): Promise<TokenPair> {
-    const accessToken = await this.mintAccessToken(userId, tenantId, roles, mfaVerified);
+    const session = await this.sessionService.createSession(userId, tenantId, deviceFingerprint);
+    const accessToken = await this.mintAccessToken(userId, tenantId, roles, mfaVerified, session.sessionId);
     const refreshToken = randomBytes(32).toString("hex");
-    await this.refreshTokenStore.store(refreshToken, { userId, tenantId, deviceFingerprint, roles }, REFRESH_TOKEN_TTL_SECONDS);
+    await this.refreshTokenStore.store(refreshToken, { userId, tenantId, deviceFingerprint, roles, sessionId: session.sessionId }, REFRESH_TOKEN_TTL_SECONDS);
     return { accessToken, refreshToken };
   }
 
@@ -33,7 +37,8 @@ export class TokenService {
    * Single-use rotation: the old refresh token is atomically consumed
    * (deleted) as the very first step, regardless of what happens next —
    * a device-fingerprint mismatch does not get a second chance to retry
-   * with a corrected fingerprint using the same token.
+   * with a corrected fingerprint using the same token. Rotating keeps
+   * the SAME session (WO-020) alive rather than creating a new one.
    */
   async refreshTokens(oldRefreshToken: string, deviceFingerprint: string): Promise<TokenPair> {
     const record = await this.refreshTokenStore.consumeAndInvalidate(oldRefreshToken);
@@ -53,11 +58,11 @@ export class TokenService {
       throw new UnauthorizedException("Refresh token is invalid, expired, or already used.");
     }
 
-    const accessToken = await this.mintAccessToken(record.userId, record.tenantId, record.roles, false);
+    const accessToken = await this.mintAccessToken(record.userId, record.tenantId, record.roles, false, record.sessionId);
     const newRefreshToken = randomBytes(32).toString("hex");
     await this.refreshTokenStore.store(
       newRefreshToken,
-      { userId: record.userId, tenantId: record.tenantId, deviceFingerprint, roles: record.roles },
+      { userId: record.userId, tenantId: record.tenantId, deviceFingerprint, roles: record.roles, sessionId: record.sessionId },
       REFRESH_TOKEN_TTL_SECONDS,
     );
 
@@ -77,13 +82,14 @@ export class TokenService {
     await this.refreshTokenStore.invalidate(refreshToken);
   }
 
-  private async mintAccessToken(userId: string, tenantId: string, roles: string[], mfaVerified: boolean): Promise<string> {
+  private async mintAccessToken(userId: string, tenantId: string, roles: string[], mfaVerified: boolean, sessionId: string): Promise<string> {
     const permissions = await this.rbacService.getPermissionsForRoles(tenantId, roles);
     // tid (short form) per this WO's acceptance criteria; tenant_id is
     // NOT also embedded — JwtKeyService.verify() normalizes tid onto
     // tenant_id for every consumer, so there is exactly one source of
     // truth for this claim on the wire, not two that could theoretically
-    // disagree.
-    return this.keyService.sign({ tid: tenantId, roles, permissions, mfa_verified: mfaVerified }, userId, ACCESS_TOKEN_TTL_SECONDS);
+    // disagree. sid (WO-020) is what TenantContextMiddleware exposes as
+    // req.sessionId for SessionValidationMiddleware to enforce.
+    return this.keyService.sign({ tid: tenantId, sid: sessionId, roles, permissions, mfa_verified: mfaVerified }, userId, ACCESS_TOKEN_TTL_SECONDS);
   }
 }

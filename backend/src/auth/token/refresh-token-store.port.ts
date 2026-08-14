@@ -6,6 +6,8 @@ export interface RefreshTokenRecord {
   deviceFingerprint: string;
   /** Role NAMES captured at original SSO login — sticky for this refresh token's lifetime. Permissions for those roles are still looked up fresh on every refresh, so a mid-session permission-grant change propagates without needing a brand-new login. */
   roles: string[];
+  /** The session (WO-020) this refresh token belongs to — rotating the token keeps the SAME session alive rather than creating a new one each refresh. */
+  sessionId: string;
 }
 
 // Production is intended to back this with Redis (this WO's own
@@ -23,4 +25,10 @@ export interface RefreshTokenStorePort {
 
   /** Explicit invalidation without consuming a replacement — e.g. logout, or the device-fingerprint-mismatch case which must NOT re-issue a fresh token for the mismatched request. */
   invalidate(tokenPlaintext: string): Promise<void>;
+
+  /** SCIM deprovisioning / admin force-logout (WO-020): every refresh token belonging to a user, revoked at once. */
+  invalidateAllForUser(userId: string): Promise<void>;
+
+  /** Admin force-logout of one specific session (WO-020): the refresh token(s) tied to that session, revoked. */
+  invalidateForSession(sessionId: string): Promise<void>;
 }
