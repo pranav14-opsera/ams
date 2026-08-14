@@ -1,0 +1,107 @@
+# Forge Shipping Engine pipeline — the single enforcement point for every
+# build/scan/push/gate/deploy this platform ships through (WO-007).
+#
+# CONNECTOR GAP, disclosed rather than worked around: creating a live,
+# Forge-orchestrated pipeline requires a GitHub connector and an AWS
+# connector actually authorized for THIS project. The only connectors
+# visible in this tenant (via shipping_get_context) belong to other users'
+# personal test accounts (e.g. "Hema githun", "SrinivasanAWS-Sales") —
+# wiring this project's build/push/deploy to someone else's GitHub/AWS
+# connector would push real container images and attempt real deployments
+# against infrastructure this project has no authorization to touch. This
+# file is the pipeline's source of truth; `connectorId: null` marks every
+# step that needs a project-specific connector added before Forge can
+# actually execute it. Until then, the build stage runs for real via the
+# GitHub Actions workflow at .github/workflows/build-and-push.yml (see
+# that file for exactly what is and isn't executed without AWS
+# credentials).
+
+name: agent-management-service
+engine: forge
+
+stages:
+  - name: source
+    triggers:
+      - event: push
+        branch: main
+        action: deploy_dev
+      - event: push
+        tag: "v*"
+        action: promote_staging_then_prod
+      - event: pull_request
+        action: ci_checks_only
+
+  - name: build
+    depends_on: [source]
+    steps:
+      - name: build-frontend
+        type: build
+        variant: build:docker
+        connectorId: null # requires a GitHub connector authorized for pranav14-opsera/ams
+        config:
+          dockerfile: frontend/Dockerfile
+          imageName: ams-frontend
+          buildArgs:
+            NODE_ENV: production
+      - name: build-backend
+        type: build
+        variant: build:docker
+        connectorId: null
+        config:
+          dockerfile: backend/Dockerfile
+          imageName: ams-backend
+          buildArgs:
+            NODE_ENV: production
+    typescript:
+      strict: true
+      failOnTypeError: true
+    target_duration_minutes: 10 # acceptance criteria: build+push under 10 minutes
+
+  - name: scan
+    depends_on: [build]
+    description: >-
+      Placeholder — the five parallel security scans are configured in
+      WO-008, accessibility scanning in WO-009. This stage exists in the
+      pipeline graph now so those stories only need to add steps here,
+      not restructure the pipeline.
+    steps: []
+
+  - name: push
+    depends_on: [scan]
+    steps:
+      - name: push-frontend
+        type: push
+        variant: push:ecr
+        connectorId: null # requires an AWS connector authorized for this project's ECR
+        config:
+          imageName: ams-frontend
+          tags: ["$GIT_SHA_SHORT", "$BRANCH_NAME"]
+          latestOnMain: true
+          region: us-east-1
+      - name: push-backend
+        type: push
+        variant: push:ecr
+        connectorId: null
+        config:
+          imageName: ams-backend
+          tags: ["$GIT_SHA_SHORT", "$BRANCH_NAME"]
+          latestOnMain: true
+          region: us-east-1
+
+  - name: gate
+    depends_on: [push]
+    description: Manual approval before production deployment only — dev/staging promote automatically.
+    condition: target_environment == "production"
+    required_approvals:
+      - role: engineering_lead
+      - role: security_lead
+    checklist: .forge/gate-checklist.md
+
+  - name: deploy
+    depends_on: [gate]
+    description: >-
+      Placeholder — blue-green deployment to Kubernetes is configured in
+      WO-010.
+    steps: []
+
+artifact_retention_days: 90 # SOC 2 audit evidence requirement
