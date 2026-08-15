@@ -56,6 +56,23 @@ rules:
           metavariable: $QUERY
           patterns:
             - pattern-not-regex: verify_audit_event_hash
+      # WO-049: `SET lock_timeout = ...` is per-session configuration, not
+      # a query against any table at all — same class of false positive
+      # as the BEGIN/COMMIT/ROLLBACK exclusion above.
+      - metavariable-pattern:
+          metavariable: $QUERY
+          patterns:
+            - pattern-not-regex: ^`SET
+      # WO-049: detach_and_drop_audit_events_partition (migration 043) is
+      # a platform-level operation on a single, already time-partitioned
+      # audit_events partition covering EVERY tenant's rows for that
+      # period — there is no one tenant_id to filter by, the same
+      # structural reason `tenants` itself (and list_audit_events_partitions_older_than,
+      # which only reads pg_catalog) are excluded above.
+      - metavariable-pattern:
+          metavariable: $QUERY
+          patterns:
+            - pattern-not-regex: detach_and_drop_audit_events_partition
     paths:
       exclude:
         # Migration runner: DDL + schema_migrations bookkeeping, not

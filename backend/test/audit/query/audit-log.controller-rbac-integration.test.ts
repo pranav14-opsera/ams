@@ -89,7 +89,9 @@ test("RBAC end-to-end: compliance_officer (view_org) sees ALL tenant audit event
     });
 
     const queryRepository = new AuditLogQueryRepository(appPool);
-    const queryService = new AuditLogQueryService(appPool, queryRepository);
+    const fakeColdStorage = { readArchive: async function* () {} } as any;
+    const fakeManifestRepository = { findOverlappingUnpurged: async () => [] } as any;
+    const queryService = new AuditLogQueryService(appPool, queryRepository, fakeColdStorage, fakeManifestRepository);
     const controller = new AuditLogController(queryService);
     const teamMembershipRepository = new TeamMembershipRepository(appPool);
     const guard = new RbacGuard(fakeReflector({ [REQUIRE_ANY_PERMISSION_KEY]: [PermissionName.AUDIT_LOGS_VIEW_ORG, PermissionName.AUDIT_LOGS_VIEW_TEAM] }), teamMembershipRepository, audit);
