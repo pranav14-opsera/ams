@@ -8,6 +8,14 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
+# WO-050: NEXT_PUBLIC_* vars are inlined into the static export at build
+# time (Next.js's own replacement rule, not a runtime lookup) — a real
+# deployment overrides these via --build-arg; src/env.ts's own placeholder
+# defaults (localhost) keep this build working even when they're not set.
+ARG NEXT_PUBLIC_API_BASE_URL=http://localhost:3001
+ARG NEXT_PUBLIC_WS_BASE_URL=ws://localhost:3001
+ENV NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}
+ENV NEXT_PUBLIC_WS_BASE_URL=${NEXT_PUBLIC_WS_BASE_URL}
 # TypeScript strict mode (tsconfig.json) fails this step on any type error
 # — see acceptance criteria: "build fails on any type error".
 RUN npm run build

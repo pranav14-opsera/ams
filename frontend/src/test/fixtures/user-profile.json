@@ -1,0 +1,7 @@
+{
+  "id": "u1111111-1111-1111-1111-111111111111",
+  "tenantId": "t1111111-1111-1111-1111-111111111111",
+  "email": "jane.doe@example.com",
+  "displayName": "Jane Doe",
+  "roles": ["team_lead"]
+}
