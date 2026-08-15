@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { JwtKeyService } from "../../../src/auth/jwt/jwt-key.service";
 import { MultiKeyJwtVerifier } from "../../../src/auth/jwt/multi-key-jwt-verifier.service";
+import { InMemoryAuditService } from "../../../src/tenants/ports/in-memory/in-memory-audit.service";
 import { ChannelPermissionsService } from "../../../src/websocket-gateway/subscription/channel-permissions.service";
 import { KafkaConsumerBridgeService } from "../../../src/websocket-gateway/subscription/kafka-consumer-bridge.service";
 import { SubscriptionManagerService } from "../../../src/websocket-gateway/subscription/subscription-manager.service";
@@ -24,7 +25,8 @@ test("fans out 50 mixed-channel events to exactly the correct subscribers, with 
   const verifier = new MultiKeyJwtVerifier(keyService);
   const registry = new SubscriptionRegistryService();
   const channelPermissions = new ChannelPermissionsService();
-  const manager = new SubscriptionManagerService(verifier, registry, channelPermissions);
+  const auditService = new InMemoryAuditService();
+  const manager = new SubscriptionManagerService(verifier, registry, channelPermissions, auditService);
   const bridge = new KafkaConsumerBridgeService(manager);
 
   const receivedByUser = new Map<string, unknown[]>();
@@ -98,7 +100,8 @@ test("a malformed Kafka envelope (missing tenantId) is dropped, never fanned out
   const verifier = new MultiKeyJwtVerifier(keyService);
   const registry = new SubscriptionRegistryService();
   const channelPermissions = new ChannelPermissionsService();
-  const manager = new SubscriptionManagerService(verifier, registry, channelPermissions);
+  const auditService = new InMemoryAuditService();
+  const manager = new SubscriptionManagerService(verifier, registry, channelPermissions, auditService);
   const bridge = new KafkaConsumerBridgeService(manager);
 
   const result = bridge.process(kafkaEventFixtures["malformed-event"] as unknown as KafkaEventEnvelope);

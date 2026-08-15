@@ -1,5 +1,7 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
+import { DataClassification } from "../../classification/data-classification.enum";
 import { JWT_VERIFIER, type JwtVerifierPort } from "../../common/jwt/jwt-verifier.port";
+import { AUDIT_SERVICE, type AuditServicePort } from "../../tenants/ports/audit-service.port";
 import { ChannelPermissionsService } from "./channel-permissions.service";
 import { SubscriptionRegistryService } from "./subscription-registry.service";
 import { CrossTenantSubscriptionError, type FanOutResult, type SessionSender, type UserSession } from "./subscription.types";
@@ -26,14 +28,36 @@ export class SubscriptionManagerService {
     @Inject(JWT_VERIFIER) private readonly jwtVerifier: JwtVerifierPort,
     private readonly registry: SubscriptionRegistryService,
     private readonly channelPermissions: ChannelPermissionsService,
+    @Inject(AUDIT_SERVICE) private readonly auditService: AuditServicePort,
   ) {}
+
+  /** Best-effort: a durable audit-trail write failing must never block (or fail) the WS operation it's describing — mirrors AuditIngestionCounterRepository's own "counter failure never blocks real processing" reasoning elsewhere in this codebase. */
+  private recordSecurityAuditEvent(event: {
+    tenantId: string;
+    actorId: string | null;
+    action: string;
+    resourceId: string;
+    details: Record<string, unknown>;
+    dataClassification?: DataClassification;
+  }): void {
+    this.auditService.recordEvent({ resourceType: "websocket_subscription", ...event }).catch((err) => {
+      this.logger.warn(`failed to record audit event for ${event.action}: ${err instanceof Error ? err.message : err}`);
+    });
+  }
 
   async authenticateConnection(token: string, send: SessionSender, now: number = Date.now()): Promise<UserSession> {
     let claims;
     try {
       claims = await this.jwtVerifier.verify(token);
     } catch (err) {
-      this.logger.warn(`security event: WebSocket subscription auth rejected — invalid/expired token (${err instanceof Error ? err.message : err})`);
+      const message = err instanceof Error ? err.message : String(err);
+      // No durable audit_events write here: audit_events.tenant_id is a
+      // NOT NULL FK into `tenants` (migration 005), and an invalid/expired
+      // token gives no verified tenant to attribute the row to — same
+      // reasoning WsAuthService already applies (Logger-only, no audit
+      // write, for this exact failure class). The Logger line below IS
+      // the record for this case.
+      this.logger.warn(`security event: WebSocket subscription auth rejected — invalid/expired token (${message})`);
       throw new SubscriptionAuthenticationError("Invalid or expired token.");
     }
 
@@ -69,11 +93,27 @@ export class SubscriptionManagerService {
       this.logger.warn(
         `security event: cross-tenant subscription attempt rejected — user=${session.userId} sessionTenant=${session.tenantId} requestedTenant=${requestedTenantId} channel=${channel}`,
       );
+      this.recordSecurityAuditEvent({
+        tenantId: session.tenantId,
+        actorId: session.userId,
+        action: "websocket_subscription.cross_tenant_attempt_rejected",
+        resourceId: channel,
+        details: { requestedTenantId, channel },
+        dataClassification: DataClassification.CONFIDENTIAL,
+      });
       throw new CrossTenantSubscriptionError(`User ${session.userId} may not subscribe to channel "${channel}" under tenant "${requestedTenantId}".`);
     }
 
     if (!this.channelPermissions.checkPermission(channel, session.permissions)) {
       this.logger.warn(`security event: permission denied for channel subscription — user=${session.userId} tenant=${session.tenantId} channel=${channel}`);
+      this.recordSecurityAuditEvent({
+        tenantId: session.tenantId,
+        actorId: session.userId,
+        action: "websocket_subscription.permission_denied",
+        resourceId: channel,
+        details: { channel, userPermissions: session.permissions },
+        dataClassification: this.channelPermissions.getRule(channel)?.requiredPermissions?.length ? DataClassification.RESTRICTED : DataClassification.CONFIDENTIAL,
+      });
       throw new CrossTenantSubscriptionError(`User ${session.userId} lacks permission to subscribe to channel "${channel}".`);
     }
 
