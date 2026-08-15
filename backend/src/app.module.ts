@@ -5,6 +5,7 @@ import { ClassificationModule } from "./classification/classification.module";
 import { DatabaseModule } from "./common/database/database.module";
 import { TenantContextMiddleware } from "./common/tenant-context.middleware";
 import { HealthController } from "./health.controller";
+import { AgentsModule } from "./agents/agents.module";
 import { GatewayModule } from "./gateway/gateway.module";
 import { PhiScrubberModule } from "./phi-scrubber/phi-scrubber.module";
 import { RbacModule } from "./rbac/rbac.module";
@@ -40,7 +41,7 @@ const SCIM_ROUTES = ["scim/v2/Users", "scim/v2/Users/*", "scim/v2/Groups", "scim
   // registered filter (RbacForbiddenExceptionFilter, etc.) already
   // handled — NestJS resolves overlapping global filters in
   // registration order, first match wins.
-  imports: [DatabaseModule, ClassificationModule, PhiScrubberModule, AuthModule, TenantsModule, WebsocketGatewayModule, GatewayModule, RbacModule, ScimModule, SharedErrorsModule],
+  imports: [DatabaseModule, ClassificationModule, PhiScrubberModule, AuthModule, TenantsModule, WebsocketGatewayModule, GatewayModule, RbacModule, ScimModule, AgentsModule, SharedErrorsModule],
   controllers: [HealthController],
 })
 export class AppModule implements NestModule {

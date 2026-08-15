@@ -47,7 +47,13 @@ test("a tenant provisioned via the saga is genuinely RLS-isolated from another t
     // Real data for tenant A only — inserted as the admin connection
     // (RLS doesn't block INSERT with an explicit tenant_id; it's the
     // read path this test is actually about).
-    await adminPool.query("INSERT INTO agents (tenant_id, name, framework) VALUES ($1, $2, $3)", [tenantA.id, "rls-test-agent", "langchain"]);
+    // connection_config_* (WO-031): NOT NULL BYOK-encrypted columns —
+    // dummy placeholder bytes are fine here, this test only exercises
+    // RLS row visibility, not real encryption.
+    await adminPool.query(
+      "INSERT INTO agents (tenant_id, name, framework, connection_config_ciphertext, connection_config_iv, connection_config_auth_tag, connection_config_encrypted_dek, connection_config_key_version) VALUES ($1, $2, $3, $4, $4, $4, $4, 1)",
+      [tenantA.id, "rls-test-agent", "langchain", Buffer.from("placeholder")],
+    );
 
     // This mirrors exactly what TenantContextMiddleware does per request:
     // check out a client, set_config('app.current_tenant', ..., true)
