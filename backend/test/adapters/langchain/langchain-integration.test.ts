@@ -91,7 +91,7 @@ test("full pipeline: a real LangChain on_llm_start/on_llm_end pair -> HMAC -> ad
         authenticated = true;
       });
       assert.equal(authenticated, true);
-      return controller.ingestTelemetry("langchain", rawBodyObject, req);
+      return controller.ingestTelemetry("langchain", rawBodyObject, req) as Promise<any>;
     }
 
     const startEnvelope = fixtures.envelope(fixtures.LLM_START, { agent_id: created.id, tenant_id: tenant.id });
