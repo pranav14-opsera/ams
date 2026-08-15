@@ -11,6 +11,8 @@ import { KafkaCircuitBreakerProducerService } from "./kafka/kafka-circuit-breake
 import { KafkaTelemetryProducerService } from "./kafka/kafka-telemetry-producer.service";
 import { TelemetryDeadLetterRepository } from "./kafka/telemetry-dead-letter.repository";
 import { TELEMETRY_PUBLISHER } from "./kafka/telemetry-publisher.port";
+import { MetricsAggregatorRepository } from "./metrics/metrics-aggregator.repository";
+import { MetricsAggregatorService } from "./metrics/metrics-aggregator.service";
 import { TelemetryPipelineService } from "./pipeline/telemetry-pipeline.service";
 import { TelemetrySchemaValidatorService } from "./telemetry-schema-validator.service";
 
@@ -23,6 +25,8 @@ import { TelemetrySchemaValidatorService } from "./telemetry-schema-validator.se
     HmacValidationMiddleware,
     TelemetrySchemaValidatorService,
     TelemetryDeadLetterRepository,
+    MetricsAggregatorRepository,
+    MetricsAggregatorService,
     TelemetryPipelineService,
     KafkaTelemetryProducerService,
     // WO-040: the publisher every caller actually injects is the circuit

@@ -19,6 +19,8 @@ import { ClassificationRuleEngine } from "../../src/classification/classificatio
 import { DataClassificationTagger } from "../../src/classification/data-classification-tagger";
 import { EncryptionService } from "../../src/encryption/encryption.service";
 import { PhiScrubberService } from "../../src/phi-scrubber/phi-scrubber.service";
+import { MetricsAggregatorRepository } from "../../src/adapters/metrics/metrics-aggregator.repository";
+import { MetricsAggregatorService } from "../../src/adapters/metrics/metrics-aggregator.service";
 import { InMemoryKmsService } from "../../src/tenants/ports/in-memory/in-memory-kms.service";
 import { PostgresAuditService } from "../../src/tenants/ports/postgres/postgres-audit.service";
 import { PostgresRbacService } from "../../src/tenants/ports/postgres/postgres-rbac.service";
@@ -99,7 +101,8 @@ async function buildRig(pool: Pool) {
   // dead-letter fallback path rather than a mocked one.
   const kafkaProducer = new KafkaTelemetryProducerService();
   const deadLetterRepository = new TelemetryDeadLetterRepository(pool);
-  const pipeline = new TelemetryPipelineService(pool, schemaValidator, tenantRepository, tagger, phiScrubber, kafkaProducer, deadLetterRepository);
+  const metricsAggregator = new MetricsAggregatorService(new MetricsAggregatorRepository(pool));
+  const pipeline = new TelemetryPipelineService(pool, schemaValidator, tenantRepository, tagger, phiScrubber, kafkaProducer, deadLetterRepository, metricsAggregator);
 
   const registry = new AdapterRegistryService();
   registry.register("generic_rest", new ReferenceTestAdapter());
