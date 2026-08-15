@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { APP_GUARD } from "@nestjs/core";
+import { WebsocketGatewayModule } from "../websocket-gateway/websocket-gateway.module";
 import { CircuitBreakerRateLimiterService } from "./circuit-breaker-rate-limiter.service";
 import { InMemoryRateLimiterService } from "./in-memory-rate-limiter.service";
 import { MetricsController } from "./metrics.controller";
@@ -9,6 +10,7 @@ import { RateLimiterGuard } from "./rate-limiter.guard";
 import { RedisRateLimiterService } from "./redis-rate-limiter.service";
 
 @Module({
+  imports: [WebsocketGatewayModule], // for WsMetricsService, merged into the shared /metrics endpoint
   controllers: [MetricsController],
   providers: [
     RedisRateLimiterService,

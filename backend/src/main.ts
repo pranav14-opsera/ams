@@ -1,5 +1,6 @@
 import { NestFactory } from "@nestjs/core";
 import { ValidationPipe } from "@nestjs/common";
+import { WsAdapter } from "@nestjs/platform-ws";
 import helmet from "helmet";
 import { AppModule } from "./app.module";
 import { CONTENT_SECURITY_POLICY_DIRECTIVES } from "./gateway/csp-policy";
@@ -33,6 +34,13 @@ async function bootstrap(): Promise<void> {
     next();
   });
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
+  // WO-030: raw `ws` protocol (not socket.io) — gives real WebSocket
+  // close codes (4001/4029) on the wire, not socket.io's own framing.
+  app.useWebSocketAdapter(new WsAdapter(app));
+  // SIGTERM triggers every gateway's onModuleDestroy (WO-030's graceful
+  // shutdown requirement: existing connections get a real close frame
+  // instead of the process just dying underneath them).
+  app.enableShutdownHooks();
   const port = process.env.PORT ? Number(process.env.PORT) : 3000;
   await app.listen(port);
 }

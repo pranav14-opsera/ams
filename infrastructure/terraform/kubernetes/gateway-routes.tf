@@ -133,3 +133,57 @@ resource "kubernetes_ingress_v1" "adapter_gateway" {
 
   depends_on = [helm_release.ingress_nginx, kubernetes_manifest.public_tls_issuer]
 }
+
+# WO-030: /ws/dashboard, /ws/alerts, /ws/approvals — long-lived WebSocket
+# connections, currently served by the SAME backend service as the REST
+# API (ams-backend), not yet split into a genuinely separate deployment
+# (see WEBSOCKET.md). ingress-nginx proxies the Upgrade/Connection
+# handshake transparently with no special annotation required; what
+# DOES need overriding is proxy-read-timeout — the default (60s) would
+# silently kill every idle WebSocket connection, which is the opposite
+# of what this WO's whole point is.
+resource "kubernetes_ingress_v1" "websocket_gateway" {
+  metadata {
+    name      = "ams-websocket-gateway"
+    namespace = "ingress-nginx"
+    annotations = {
+      "kubernetes.io/ingress.class"                    = "nginx"
+      "cert-manager.io/cluster-issuer"                 = "public-tls-issuer"
+      "nginx.ingress.kubernetes.io/ssl-redirect"       = "true"
+      "nginx.ingress.kubernetes.io/proxy-read-timeout" = "3600" # long-lived connections — the default 60s would kill idle WebSocket sessions
+      "nginx.ingress.kubernetes.io/proxy-send-timeout" = "3600"
+    }
+  }
+
+  spec {
+    tls {
+      hosts       = [var.gateway_hostname]
+      secret_name = "ams-gateway-public-tls"
+    }
+
+    rule {
+      host = var.gateway_hostname
+
+      http {
+        dynamic "path" {
+          for_each = ["/ws/dashboard", "/ws/alerts", "/ws/approvals"]
+          content {
+            path      = path.value
+            path_type = "Prefix"
+
+            backend {
+              service {
+                name = var.gateway_route_backends["/api/v1/auth"].service # same backend process — see WEBSOCKET.md
+                port {
+                  number = var.gateway_route_backends["/api/v1/auth"].port
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  depends_on = [helm_release.ingress_nginx, kubernetes_manifest.public_tls_issuer]
+}

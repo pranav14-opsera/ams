@@ -11,6 +11,7 @@ import { RbacModule } from "./rbac/rbac.module";
 import { ScimModule } from "./scim/scim.module";
 import { SharedErrorsModule } from "./shared/errors/shared-errors.module";
 import { TenantsModule } from "./tenants/tenants.module";
+import { WebsocketGatewayModule } from "./websocket-gateway/websocket-gateway.module";
 
 const PRE_AUTH_ROUTES = [
   "health/live",
@@ -39,7 +40,7 @@ const SCIM_ROUTES = ["scim/v2/Users", "scim/v2/Users/*", "scim/v2/Groups", "scim
   // registered filter (RbacForbiddenExceptionFilter, etc.) already
   // handled — NestJS resolves overlapping global filters in
   // registration order, first match wins.
-  imports: [DatabaseModule, ClassificationModule, PhiScrubberModule, AuthModule, TenantsModule, GatewayModule, RbacModule, ScimModule, SharedErrorsModule],
+  imports: [DatabaseModule, ClassificationModule, PhiScrubberModule, AuthModule, TenantsModule, WebsocketGatewayModule, GatewayModule, RbacModule, ScimModule, SharedErrorsModule],
   controllers: [HealthController],
 })
 export class AppModule implements NestModule {
