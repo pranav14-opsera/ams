@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { JwtKeyService } from "../../../src/auth/jwt/jwt-key.service";
 import { MultiKeyJwtVerifier } from "../../../src/auth/jwt/multi-key-jwt-verifier.service";
+import { InMemoryAuditService } from "../../../src/tenants/ports/in-memory/in-memory-audit.service";
 import { ChannelPermissionsService } from "../../../src/websocket-gateway/subscription/channel-permissions.service";
 import { SubscriptionAuthenticationError, SubscriptionManagerService } from "../../../src/websocket-gateway/subscription/subscription-manager.service";
 import { SubscriptionRegistryService } from "../../../src/websocket-gateway/subscription/subscription-registry.service";
@@ -12,8 +13,9 @@ function buildRig() {
   const verifier = new MultiKeyJwtVerifier(keyService);
   const registry = new SubscriptionRegistryService();
   const channelPermissions = new ChannelPermissionsService();
-  const manager = new SubscriptionManagerService(verifier, registry, channelPermissions);
-  return { keyService, registry, manager };
+  const auditService = new InMemoryAuditService();
+  const manager = new SubscriptionManagerService(verifier, registry, channelPermissions, auditService);
+  return { keyService, registry, manager, auditService };
 }
 
 test("authenticateConnection accepts a valid token and registers the session", async () => {
@@ -32,22 +34,30 @@ test("authenticateConnection rejects an invalid token", async () => {
   await assert.rejects(() => manager.authenticateConnection("not-a-real-token", () => undefined), SubscriptionAuthenticationError);
 });
 
-test("handleSubscribe rejects a cross-tenant subscription attempt and never registers it", async () => {
-  const { keyService, manager, registry } = buildRig();
+test("handleSubscribe rejects a cross-tenant subscription attempt, never registers it, and records a structured audit event", async () => {
+  const { keyService, manager, registry, auditService } = buildRig();
   const token = keyService.sign({ tid: "tenant-a", roles: ["agent_operator"], permissions: [] }, "user-1", 900);
   const session = await manager.authenticateConnection(token, () => undefined);
 
   assert.throws(() => manager.handleSubscribe(session, "tenant-b", "agent-health"), CrossTenantSubscriptionError);
   assert.equal(registry.getUsersByTenantAndChannel("tenant-b", "agent-health").length, 0);
   assert.equal(registry.getUsersByTenantAndChannel("tenant-a", "agent-health").length, 0, "the rejected attempt must not silently subscribe under the session's own tenant either");
+
+  assert.equal(auditService.events.length, 1);
+  assert.equal(auditService.events[0].action, "websocket_subscription.cross_tenant_attempt_rejected");
+  assert.equal(auditService.events[0].tenantId, "tenant-a", "recorded against the session's OWN verified tenant, never the attacker-supplied one");
+  assert.equal(auditService.events[0].actorId, "user-1");
 });
 
-test("handleSubscribe rejects a channel the user's permissions do not allow", async () => {
-  const { keyService, manager, registry } = buildRig();
+test("handleSubscribe rejects a channel the user's permissions do not allow and records a structured audit event", async () => {
+  const { keyService, manager, registry, auditService } = buildRig();
   const token = keyService.sign({ tid: "tenant-a", roles: ["agent_operator"], permissions: ["agent_management:agent:trigger"] }, "user-1", 900);
   const session = await manager.authenticateConnection(token, () => undefined);
 
   assert.throws(() => manager.handleSubscribe(session, "tenant-a", "phi-access"), CrossTenantSubscriptionError);
+  assert.equal(auditService.events.length, 1);
+  assert.equal(auditService.events[0].action, "websocket_subscription.permission_denied");
+  assert.equal(auditService.events[0].dataClassification, "restricted", "a PHI-gated channel's denial must be tagged at least as sensitive as the data it protects");
   assert.equal(registry.getUsersByTenantAndChannel("tenant-a", "phi-access").length, 0);
 });
 

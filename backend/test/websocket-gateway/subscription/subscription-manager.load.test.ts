@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { JwtKeyService } from "../../../src/auth/jwt/jwt-key.service";
 import { MultiKeyJwtVerifier } from "../../../src/auth/jwt/multi-key-jwt-verifier.service";
+import { InMemoryAuditService } from "../../../src/tenants/ports/in-memory/in-memory-audit.service";
 import { ChannelPermissionsService } from "../../../src/websocket-gateway/subscription/channel-permissions.service";
 import { SubscriptionManagerService } from "../../../src/websocket-gateway/subscription/subscription-manager.service";
 import { SubscriptionRegistryService } from "../../../src/websocket-gateway/subscription/subscription-registry.service";
@@ -30,7 +31,8 @@ test("500 connections across 10 tenants: P99 per-tenant fan-out latency stays un
   const verifier = new MultiKeyJwtVerifier(keyService);
   const registry = new SubscriptionRegistryService();
   const channelPermissions = new ChannelPermissionsService();
-  const manager = new SubscriptionManagerService(verifier, registry, channelPermissions);
+  const auditService = new InMemoryAuditService();
+  const manager = new SubscriptionManagerService(verifier, registry, channelPermissions, auditService);
 
   const deliveryLog: Array<{ userId: string; tenantId: string; eventTenantId: string }> = [];
   let currentEventTenantId = "";
