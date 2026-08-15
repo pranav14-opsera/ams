@@ -66,7 +66,38 @@ resource "helm_release" "ingress_nginx" {
     value = "429"
   }
 
-  depends_on = [kubernetes_namespace.system, aws_eks_node_group.system]
+  # WO-028: WAF (ModSecurity + OWASP Core Rule Set) and mandatory
+  # security response headers — see waf.tf for the CRS tuning, exclusion
+  # rules, and structured JSON WAF audit logging this enables.
+  set {
+    name  = "controller.config.enable-modsecurity"
+    value = "true"
+  }
+  set {
+    name  = "controller.config.enable-owasp-modsecurity-crs"
+    value = "true"
+  }
+  set {
+    name  = "controller.config.modsecurity-snippet"
+    value = local.modsecurity_snippet
+  }
+  # Applies the ConfigMap in waf.tf's headers.tf-equivalent resource —
+  # HSTS/CSP/X-Content-Type-Options/X-Frame-Options/etc on EVERY response
+  # this gateway proxies, in addition to the backend's own helmet
+  # middleware (defense in depth, same pattern as not relying on a single
+  # layer for JWT verification either).
+  set {
+    name  = "controller.config.add-headers"
+    value = "ingress-nginx/security-response-headers"
+  }
+  # Custom JSON body for WAF-blocked (403) responses — never reveals
+  # which rule matched (this WO's own anti-reconnaissance requirement).
+  set {
+    name  = "controller.config.server-snippet"
+    value = local.waf_403_server_snippet
+  }
+
+  depends_on = [kubernetes_namespace.system, aws_eks_node_group.system, kubernetes_config_map.security_response_headers]
 }
 
 resource "helm_release" "cert_manager" {

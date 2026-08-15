@@ -162,3 +162,104 @@ run "adapter_ingress_is_separate_with_its_own_body_size_and_rate_limit" {
     error_message = "The adapter Ingress must route the /adapters prefix"
   }
 }
+
+# --- WO-028: WAF + security headers ---
+
+run "modsecurity_and_owasp_crs_are_enabled_on_the_ingress_controller" {
+  command = apply
+
+  assert {
+    condition     = [for s in helm_release.ingress_nginx.set : s.value if s.name == "controller.config.enable-modsecurity"][0] == "true"
+    error_message = "ModSecurity must be enabled on the ingress controller"
+  }
+
+  assert {
+    condition     = [for s in helm_release.ingress_nginx.set : s.value if s.name == "controller.config.enable-owasp-modsecurity-crs"][0] == "true"
+    error_message = "The OWASP Core Rule Set must be enabled, not just ModSecurity's engine"
+  }
+}
+
+run "modsecurity_config_sets_paranoia_level_2_json_audit_logging_and_a_10mb_body_limit" {
+  command = apply
+
+  assert {
+    condition     = strcontains(local.modsecurity_snippet, "tx.paranoia_level=2")
+    error_message = "This WO's spec requires OWASP CRS paranoia level 2"
+  }
+
+  assert {
+    condition     = strcontains(local.modsecurity_snippet, "SecAuditLogFormat JSON")
+    error_message = "WAF-blocked requests must be logged in structured JSON for SIEM integration"
+  }
+
+  assert {
+    condition     = strcontains(local.modsecurity_snippet, "SecRequestBodyLimit 10485760")
+    error_message = "Request body limit must be 10MB (10485760 bytes) per this WO's spec"
+  }
+
+  assert {
+    condition     = strcontains(local.modsecurity_snippet, "SecResponseBodyAccess Off")
+    error_message = "Response body inspection must be disabled for performance, per this WO's spec"
+  }
+}
+
+run "modsecurity_false_positive_exclusions_target_jwt_and_json_bodies_only" {
+  command = apply
+
+  assert {
+    condition     = strcontains(local.modsecurity_snippet, "REQUEST_HEADERS:Authorization")
+    error_message = "Must exclude the Authorization header (Bearer JWTs) from SQLi/XSS heuristics — a documented false-positive shape"
+  }
+
+  assert {
+    condition     = strcontains(local.modsecurity_snippet, "application/(scim\\+)?json")
+    error_message = "Must exclude JSON and SCIM+JSON request bodies from the SQLi body scan — this platform's own known false-positive shape"
+  }
+}
+
+run "waf_blocked_responses_return_a_structured_json_body_that_never_reveals_the_matched_rule" {
+  command = apply
+
+  assert {
+    condition     = strcontains(local.waf_403_server_snippet, "\"error\":\"request_blocked\"")
+    error_message = "WAF 403 responses must use this WO's exact structured error code"
+  }
+
+  assert {
+    condition     = !strcontains(local.waf_403_server_snippet, "rule_id") && !strcontains(local.waf_403_server_snippet, "MSC_")
+    error_message = "The response body must never reveal which WAF rule matched (anti-reconnaissance requirement)"
+  }
+
+  assert {
+    condition     = strcontains(local.waf_403_server_snippet, "$request_id")
+    error_message = "The 403 body must include the same request_id correlation id every other response carries"
+  }
+}
+
+run "security_response_headers_configmap_covers_every_mandatory_header" {
+  command = apply
+
+  assert {
+    condition     = kubernetes_config_map.security_response_headers.data["Strict-Transport-Security"] == "max-age=31536000; includeSubDomains; preload"
+    error_message = "HSTS must be exactly max-age=31536000; includeSubDomains; preload per this WO's spec"
+  }
+
+  assert {
+    condition     = kubernetes_config_map.security_response_headers.data["X-Content-Type-Options"] == "nosniff"
+    error_message = "X-Content-Type-Options must be nosniff"
+  }
+
+  assert {
+    condition     = kubernetes_config_map.security_response_headers.data["X-Frame-Options"] == "DENY"
+    error_message = "X-Frame-Options must be DENY, not the less-strict SAMEORIGIN"
+  }
+}
+
+run "ingress_controller_references_the_security_headers_configmap" {
+  command = apply
+
+  assert {
+    condition     = [for s in helm_release.ingress_nginx.set : s.value if s.name == "controller.config.add-headers"][0] == "ingress-nginx/security-response-headers"
+    error_message = "The ingress controller must reference the security-response-headers ConfigMap by namespace/name"
+  }
+}

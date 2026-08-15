@@ -7,6 +7,8 @@ and the CloudWatch audit log group.
 
 Also provisions the platform's API Gateway (WO-026): NGINX Ingress
 Controller, cert-manager, and routing — see [GATEWAY.md](./GATEWAY.md).
+WAF and mandatory security headers (WO-028) are documented in
+[WAF.md](./WAF.md).
 
 ## Composition with the networking module (WO-002)
 
