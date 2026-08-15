@@ -30,7 +30,12 @@ export class ListAgentHealthQueryDto {
   @Transform(toNumber)
   @IsInt()
   @Min(1)
-  @Max(200)
+  // WO-058: raised from 200 to 1000 — this WO's own scaling target is
+  // 500+ concurrent agents per tenant, and HealthMetricsPublisherService
+  // fetches the full fleet snapshot for the live WebSocket push (not a
+  // paginated REST page), so the cap needs headroom above that target,
+  // not just below it.
+  @Max(1000)
   limit?: number;
 
   @IsOptional()

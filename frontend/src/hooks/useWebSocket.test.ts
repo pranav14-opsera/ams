@@ -60,10 +60,16 @@ describe("useWebSocket", () => {
     act(() => MockWebSocket.latest().emitUnexpectedDisconnect());
     expect(result.current.state).toBe("reconnecting");
 
-    await act(() => vi.advanceTimersByTimeAsync(999));
+    await act(() => vi.advanceTimersByTimeAsync(800));
     expect(MockWebSocket.instances.length).toBe(1); // not yet
 
-    await act(() => vi.advanceTimersByTimeAsync(2));
+    // `shouldAdvanceTime: true` lets real wall-clock time bleed into fake-timer
+    // advances, so a tight ~1000ms boundary (999ms/+2ms) is flaky under load
+    // (coverage instrumentation, CI contention) — found via testing. A wider
+    // margin on both sides of the 1000ms threshold keeps the same assertion
+    // (not yet at well under 1s, reconnected by well past 1s) without relying
+    // on near-exact timing.
+    await act(() => vi.advanceTimersByTimeAsync(400));
     await vi.waitFor(() => expect(MockWebSocket.instances.length).toBe(2)); // 1st retry at ~1s
   });
 

@@ -1,44 +1,62 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { AgentHealthCard } from "@/components/dashboard/agent-health-card";
+import { useEffect, useMemo, useState } from "react";
 import { FleetHealthSummary } from "@/components/dashboard/fleet-health-summary";
 import { HealthFilterBar } from "@/components/dashboard/health-filter-bar";
-import { useFleetHealthQuery } from "@/hooks/useFleetHealthQuery";
+import { VirtualizedAgentGrid } from "@/components/dashboard/virtualized-agent-grid";
+import { useFleetHealthInfiniteQuery } from "@/hooks/useFleetHealthInfiniteQuery";
+import { useHealthMetricsWorker } from "@/hooks/useHealthMetricsWorker";
 import { useHealthWebSocket } from "@/hooks/useHealthWebSocket";
-import { applyHealthFilters, sortBySeverity } from "@/lib/agent-health";
-import type { AgentHealthFilters, FleetHealthResult } from "@/types/dashboard";
+import { applyHealthFilters } from "@/lib/agent-health";
+import type { AgentHealthFilters, AgentHealthViewModel, FleetHealthResult } from "@/types/dashboard";
 
 /**
- * AC: real-time agent health overview. The live WebSocket feed (once
- * connected) is the source of truth for what's displayed — the initial
- * REST fetch (useFleetHealthQuery) exists only to paint something before
- * the socket has delivered its first push, and as the fallback if the
- * socket never connects at all.
+ * AC: real-time agent health overview, scaled to 500+ agents (WO-058).
+ * The live WebSocket feed (once connected) is the source of truth for
+ * what's displayed — progressive REST pagination (useFleetHealthInfiniteQuery)
+ * exists to paint something before the socket delivers its first push,
+ * and as the fallback if the socket never connects. Sorting hundreds of
+ * agents by severity is offloaded to a Web Worker (useHealthMetricsWorker)
+ * rather than run synchronously on every render/update.
  */
 export default function AgentHealthDashboardPage() {
   const router = useRouter();
   const [filters, setFilters] = useState<AgentHealthFilters>({});
-  const restQuery = useFleetHealthQuery(filters);
+  const worker = useHealthMetricsWorker();
+
+  const infiniteQuery = useFleetHealthInfiniteQuery(filters);
   const { latest: liveSnapshot, connectionState, isStale } = useHealthWebSocket();
 
-  const source: FleetHealthResult | undefined = liveSnapshot ?? restQuery.data;
+  const restAgents = useMemo(() => infiniteQuery.data?.pages.flatMap((page) => page.agents) ?? [], [infiniteQuery.data]);
+  const restSource: FleetHealthResult | undefined = infiniteQuery.data?.pages[0];
 
-  if (restQuery.isLoading && !source) {
+  const source: FleetHealthResult | undefined = liveSnapshot ?? restSource;
+  const displayedAgents = liveSnapshot ? applyHealthFilters(liveSnapshot.agents, filters) : restAgents;
+
+  const [sortedAgents, setSortedAgents] = useState<AgentHealthViewModel[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    void worker.sortBySeverity(displayedAgents).then((sorted) => {
+      if (!cancelled) setSortedAgents(sorted);
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `worker` is a fresh object every render (its methods close over refs, not props/state) — depending on it would re-run this effect every render regardless of whether the agent list actually changed.
+  }, [displayedAgents]);
+
+  if (infiniteQuery.isLoading && !source) {
     return <p role="status">Loading agent health…</p>;
   }
 
-  if (restQuery.isError && !source) {
+  if (infiniteQuery.isError && !source) {
     return <p role="alert">Unable to load agent health right now. Please try again shortly.</p>;
   }
 
   if (!source) {
     return <p role="status">No agent health data available yet.</p>;
   }
-
-  const filteredAgents = liveSnapshot ? applyHealthFilters(liveSnapshot.agents, filters) : source.agents;
-  const sortedAgents = sortBySeverity(filteredAgents);
 
   return (
     <div className="flex flex-col gap-6">
@@ -55,17 +73,16 @@ export default function AgentHealthDashboardPage() {
 
       <HealthFilterBar filters={filters} onChange={setFilters} />
 
-      <div className="flex flex-col gap-3" role="list" aria-label="Agent health list">
-        {sortedAgents.length === 0 ? (
-          <p className="text-muted-foreground text-sm">No agents match the current filters.</p>
-        ) : (
-          sortedAgents.map((agent) => (
-            <div key={agent.id} role="listitem">
-              <AgentHealthCard agent={agent} onSelect={(agentId) => router.push(`/agents/health/detail?agentId=${agentId}`)} />
-            </div>
-          ))
-        )}
-      </div>
+      {sortedAgents.length === 0 ? (
+        <p className="text-muted-foreground text-sm">No agents match the current filters.</p>
+      ) : (
+        <VirtualizedAgentGrid
+          agents={sortedAgents}
+          onSelect={(agentId) => router.push(`/agents/health/detail?agentId=${agentId}`)}
+          onLoadMore={() => infiniteQuery.fetchNextPage()}
+          hasMore={!liveSnapshot && infiniteQuery.hasNextPage}
+        />
+      )}
     </div>
   );
 }
