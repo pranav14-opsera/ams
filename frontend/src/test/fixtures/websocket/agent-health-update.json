@@ -1,0 +1,6 @@
+{
+  "type": "data",
+  "channel": "agent-health",
+  "payload": { "agentId": "a1111111-1111-1111-1111-111111111111", "status": "healthy", "lastHeartbeatAt": "2026-08-15T12:00:00.000Z" },
+  "timestamp": "2026-08-15T12:00:00.050Z"
+}

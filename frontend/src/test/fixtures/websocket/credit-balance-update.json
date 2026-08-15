@@ -1,0 +1,6 @@
+{
+  "type": "data",
+  "channel": "credit-balance",
+  "payload": { "tenantId": "t1111111-1111-1111-1111-111111111111", "balance": 4820.5, "currency": "credits" },
+  "timestamp": "2026-08-15T12:00:01.000Z"
+}

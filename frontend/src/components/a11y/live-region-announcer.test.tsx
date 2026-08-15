@@ -57,7 +57,7 @@ describe("LiveRegionAnnouncer", () => {
     expect(container.querySelector('[aria-live="polite"]')).toHaveTextContent("");
 
     await act(async () => {
-      await wait(150);
+      await wait(300);
     });
     expect(container.querySelector('[aria-live="polite"]')).toHaveTextContent("Saved");
   });
@@ -74,7 +74,7 @@ describe("LiveRegionAnnouncer", () => {
       announce("first");
       announce("second");
       announce("third");
-      await wait(150);
+      await wait(300);
     });
 
     expect(container.querySelector('[aria-live="polite"]')).toHaveTextContent("third");

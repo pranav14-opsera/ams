@@ -1,0 +1,6 @@
+{
+  "type": "data",
+  "channel": "alerts",
+  "payload": { "severity": "critical", "message": "Agent trigger failure rate exceeded threshold", "resourceId": "a1111111-1111-1111-1111-111111111111" },
+  "timestamp": "2026-08-15T12:00:02.000Z"
+}
