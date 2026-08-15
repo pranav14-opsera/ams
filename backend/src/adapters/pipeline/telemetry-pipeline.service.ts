@@ -72,7 +72,19 @@ export class TelemetryPipelineService {
       fields: event as unknown as Record<string, unknown>,
     });
 
-    const scrubbedMetadata = this.phiScrubber.scrub(event.metadata, tenant?.settings ?? null) as Record<string, unknown>;
+    // Two passes, deliberately: scrub() masks by field NAME (e.g. a
+    // `patient_ssn` key, regardless of its value's shape) and by an
+    // EXACT whole-value match (a field whose entire value is exactly
+    // "123-45-6789"). Neither catches a PHI-shaped value embedded inside
+    // a longer free-text string — e.g. a LangChain error message like
+    // "rate limit exceeded for patient SSN 123-45-6789" — which is
+    // exactly the shape adapter-supplied `metadata.error` content tends
+    // to take (found via testing the LangChain adapter's on_llm_error
+    // mapping). scrubText() does substring-level masking, so the second
+    // pass runs it over the JSON-serialized, already-field-scrubbed
+    // metadata to catch those embedded values too.
+    const fieldScrubbedMetadata = this.phiScrubber.scrub(event.metadata, tenant?.settings ?? null) as Record<string, unknown>;
+    const scrubbedMetadata = JSON.parse(this.phiScrubber.scrubText(JSON.stringify(fieldScrubbedMetadata), tenant?.settings ?? null)) as Record<string, unknown>;
     const outboundEvent: CanonicalTelemetryEvent = { ...event, metadata: scrubbedMetadata };
 
     let deadLettered = false;

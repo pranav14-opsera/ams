@@ -25,6 +25,12 @@ import { TelemetrySchemaValidatorService } from "./telemetry-schema-validator.se
     TelemetryPipelineService,
     { provide: TELEMETRY_PUBLISHER, useClass: KafkaTelemetryProducerService },
   ],
-  exports: [HmacValidationMiddleware],
+  // AdapterRegistryService exported so per-framework adapter modules
+  // (LangChainModule, and WO-036/037/038's REST/CrewAI/AutoGen modules)
+  // register themselves into the SAME registry instance the ingestion
+  // controller actually queries — each importing its own separate
+  // AdapterRegistryService provider would silently register into an
+  // instance nothing ever reads from.
+  exports: [HmacValidationMiddleware, AdapterRegistryService],
 })
 export class AdaptersModule {}
