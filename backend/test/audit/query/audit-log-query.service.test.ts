@@ -15,10 +15,18 @@ function fakeRepository() {
   } as any;
 }
 
+function fakeColdStorage() {
+  return { readArchive: async function* () {} } as any;
+}
+
+function fakeManifestRepository() {
+  return { findOverlappingUnpurged: async () => [] } as any;
+}
+
 test("a caller with AUDIT_LOGS_VIEW_ORG gets unrestricted (org-wide) access — no actor-id restriction is applied", async () => {
   const repository = fakeRepository();
   const pool = { query: async () => ({ rows: [] }) } as any;
-  const service = new AuditLogQueryService(pool, repository);
+  const service = new AuditLogQueryService(pool, repository, fakeColdStorage(), fakeManifestRepository());
 
   const result = await service.query(
     { tenantId: "t1", actorId: "u1", permissions: [PermissionName.AUDIT_LOGS_VIEW_ORG] },
@@ -39,7 +47,7 @@ test("a caller with ONLY AUDIT_LOGS_VIEW_TEAM is restricted to their team's memb
       return { rows: [] };
     },
   } as any;
-  const service = new AuditLogQueryService(pool, repository);
+  const service = new AuditLogQueryService(pool, repository, fakeColdStorage(), fakeManifestRepository());
 
   const result = await service.query(
     { tenantId: "t1", actorId: "u1", permissions: [PermissionName.AUDIT_LOGS_VIEW_TEAM] },
@@ -53,7 +61,7 @@ test("a caller with ONLY AUDIT_LOGS_VIEW_TEAM is restricted to their team's memb
 test("a team_lead who belongs to no team at all is restricted to just their own actions (never sees the whole tenant by accident)", async () => {
   const repository = fakeRepository();
   const pool = { query: async () => ({ rows: [] }) } as any; // no team_members row for this user
-  const service = new AuditLogQueryService(pool, repository);
+  const service = new AuditLogQueryService(pool, repository, fakeColdStorage(), fakeManifestRepository());
 
   const result = await service.query({ tenantId: "t1", actorId: "lonely-user", permissions: [PermissionName.AUDIT_LOGS_VIEW_TEAM] }, { startTime: "2026-01-01T00:00:00Z", endTime: "2026-01-31T23:59:59Z" } as any);
 
@@ -64,7 +72,7 @@ test("a team_lead who belongs to no team at all is restricted to just their own 
 test("a caller with BOTH view_org and view_team (platform_admin) gets org-wide access — the broader grant wins", async () => {
   const repository = fakeRepository();
   const pool = { query: async () => ({ rows: [] }) } as any;
-  const service = new AuditLogQueryService(pool, repository);
+  const service = new AuditLogQueryService(pool, repository, fakeColdStorage(), fakeManifestRepository());
 
   const result = await service.query(
     { tenantId: "t1", actorId: randomUUID(), permissions: [PermissionName.AUDIT_LOGS_VIEW_ORG, PermissionName.AUDIT_LOGS_VIEW_TEAM] },
@@ -77,7 +85,7 @@ test("a caller with BOTH view_org and view_team (platform_admin) gets org-wide a
 test("filters from the DTO are passed straight through to the repository, alongside the resolved scope restriction", async () => {
   const repository = fakeRepository();
   const pool = { query: async () => ({ rows: [] }) } as any;
-  const service = new AuditLogQueryService(pool, repository);
+  const service = new AuditLogQueryService(pool, repository, fakeColdStorage(), fakeManifestRepository());
 
   await service.query(
     { tenantId: "t1", actorId: "u1", permissions: [PermissionName.AUDIT_LOGS_VIEW_ORG] },

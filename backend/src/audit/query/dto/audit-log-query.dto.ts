@@ -1,5 +1,5 @@
-import { IsISO8601, IsIn, IsInt, IsOptional, IsString, IsUUID, Max, Min } from "class-validator";
-import { Type } from "class-transformer";
+import { IsBoolean, IsISO8601, IsIn, IsInt, IsOptional, IsString, IsUUID, Max, Min } from "class-validator";
+import { Transform, Type } from "class-transformer";
 
 const DATA_CLASSIFICATIONS = ["public", "internal", "confidential", "restricted"];
 
@@ -45,4 +45,13 @@ export class AuditLogQueryDto {
   @Min(1)
   @Max(1000)
   limit?: number;
+
+  // AC (WO-049 query federation): "GET /api/v1/audit/logs endpoint with a
+  // cold_storage=true parameter." Query strings arrive as the literal text
+  // "true"/"false", never a real boolean — Transform normalizes both that
+  // and the (falsy-but-present) empty-string case before IsBoolean runs.
+  @IsOptional()
+  @Transform(({ value }) => (value === "true" ? true : value === "false" ? false : value))
+  @IsBoolean()
+  cold_storage?: boolean;
 }
