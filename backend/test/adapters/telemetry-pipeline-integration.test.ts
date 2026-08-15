@@ -149,7 +149,7 @@ test("full pipeline: HMAC validation -> schema validation -> enrichment -> PHI s
     assert.equal(req.telemetryAgentId, created.id);
 
     // Step 2: the full ingestion controller — adapter lookup, translation, and the rest of the pipeline.
-    const result = await controller.ingestTelemetry("generic_rest", rawEvent, req);
+    const result: any = await controller.ingestTelemetry("generic_rest", rawEvent, req);
     assert.equal(result.accepted, true);
     assert.equal(result.eventId, rawEvent.event_id);
     assert.equal(result.deadLettered, true, "no Kafka broker exists in this sandbox — publication genuinely fails and falls back to the DLQ");
