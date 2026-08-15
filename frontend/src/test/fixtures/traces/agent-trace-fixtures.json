@@ -1,0 +1,29 @@
+{
+  "description": "Execution trace fixtures (WO-057 AC) for frontend component tests — mirrors the backend fixture's shape (AgentExecutionTrace), including a PHI-shaped input that should already be [MASKED] by the time the frontend receives it (masking happens server-side, TraceService).",
+  "traces": [
+    {
+      "id": "trace-1",
+      "tenantId": "tenant-a",
+      "agentId": "agent-1",
+      "status": "completed",
+      "startedAt": "2026-08-16T00:00:00.000Z",
+      "durationMs": 850,
+      "steps": [
+        { "stepName": "retrieve_context", "toolName": "vector_search", "durationMs": 300, "status": "success", "inputSummary": "[MASKED] lookup", "outputSummary": "3 documents retrieved" },
+        { "stepName": "generate_response", "toolName": null, "durationMs": 550, "status": "success", "inputSummary": "context + query", "outputSummary": "Response generated" }
+      ]
+    },
+    {
+      "id": "trace-2",
+      "tenantId": "tenant-a",
+      "agentId": "agent-1",
+      "status": "failed",
+      "startedAt": "2026-08-15T23:00:00.000Z",
+      "durationMs": 220,
+      "steps": [
+        { "stepName": "retrieve_context", "toolName": "vector_search", "durationMs": 100, "status": "success", "inputSummary": "Standard query, no PHI-shaped content", "outputSummary": "1 document retrieved" },
+        { "stepName": "generate_response", "toolName": null, "durationMs": 120, "status": "error", "inputSummary": "context + query", "outputSummary": "Tool invocation timed out" }
+      ]
+    }
+  ]
+}

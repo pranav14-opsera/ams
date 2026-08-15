@@ -1,0 +1,485 @@
+{
+  "description": "20 execution trace records (WO-057 AC) across 5 agents, some with PHI-shaped content (SSN/MRN/DOB) in an early step field to exercise TraceService's read-time PHI masking in local dev/CI.",
+  "traces": [
+    {
+      "agentId": "agent-1",
+      "status": "failed",
+      "startedAt": "2026-08-15T19:40:23.036Z",
+      "durationMs": 1560,
+      "steps": [
+        {
+          "stepName": "retrieve_context",
+          "toolName": "vector_search",
+          "durationMs": 227,
+          "status": "success",
+          "inputSummary": "Patient SSN 123-45-6789 requires follow-up",
+          "outputSummary": "3 documents retrieved"
+        },
+        {
+          "stepName": "generate_response",
+          "toolName": null,
+          "durationMs": 818,
+          "status": "error",
+          "inputSummary": "context + query",
+          "outputSummary": "Tool invocation timed out"
+        }
+      ]
+    },
+    {
+      "agentId": "agent-2",
+      "status": "completed",
+      "startedAt": "2026-08-15T18:40:23.037Z",
+      "durationMs": 2171,
+      "steps": [
+        {
+          "stepName": "retrieve_context",
+          "toolName": "vector_search",
+          "durationMs": 174,
+          "status": "success",
+          "inputSummary": "MRN 87654321 record accessed",
+          "outputSummary": "3 documents retrieved"
+        },
+        {
+          "stepName": "generate_response",
+          "toolName": null,
+          "durationMs": 898,
+          "status": "success",
+          "inputSummary": "context + query",
+          "outputSummary": "Response generated"
+        }
+      ]
+    },
+    {
+      "agentId": "agent-3",
+      "status": "completed",
+      "startedAt": "2026-08-15T17:40:23.037Z",
+      "durationMs": 2027,
+      "steps": [
+        {
+          "stepName": "retrieve_context",
+          "toolName": "vector_search",
+          "durationMs": 127,
+          "status": "success",
+          "inputSummary": "DOB 1985-03-14 verified against intake form",
+          "outputSummary": "3 documents retrieved"
+        },
+        {
+          "stepName": "generate_response",
+          "toolName": null,
+          "durationMs": 260,
+          "status": "success",
+          "inputSummary": "context + query",
+          "outputSummary": "Response generated"
+        }
+      ]
+    },
+    {
+      "agentId": "agent-4",
+      "status": "completed",
+      "startedAt": "2026-08-15T16:40:23.037Z",
+      "durationMs": 2079,
+      "steps": [
+        {
+          "stepName": "retrieve_context",
+          "toolName": "vector_search",
+          "durationMs": 187,
+          "status": "success",
+          "inputSummary": "Standard query, no PHI-shaped content",
+          "outputSummary": "3 documents retrieved"
+        },
+        {
+          "stepName": "generate_response",
+          "toolName": null,
+          "durationMs": 566,
+          "status": "success",
+          "inputSummary": "context + query",
+          "outputSummary": "Response generated"
+        }
+      ]
+    },
+    {
+      "agentId": "agent-5",
+      "status": "completed",
+      "startedAt": "2026-08-15T15:40:23.037Z",
+      "durationMs": 1470,
+      "steps": [
+        {
+          "stepName": "retrieve_context",
+          "toolName": "vector_search",
+          "durationMs": 320,
+          "status": "success",
+          "inputSummary": "Patient SSN 123-45-6789 requires follow-up",
+          "outputSummary": "3 documents retrieved"
+        },
+        {
+          "stepName": "generate_response",
+          "toolName": null,
+          "durationMs": 405,
+          "status": "success",
+          "inputSummary": "context + query",
+          "outputSummary": "Response generated"
+        }
+      ]
+    },
+    {
+      "agentId": "agent-1",
+      "status": "failed",
+      "startedAt": "2026-08-15T14:40:23.037Z",
+      "durationMs": 1243,
+      "steps": [
+        {
+          "stepName": "retrieve_context",
+          "toolName": "vector_search",
+          "durationMs": 216,
+          "status": "success",
+          "inputSummary": "MRN 87654321 record accessed",
+          "outputSummary": "3 documents retrieved"
+        },
+        {
+          "stepName": "generate_response",
+          "toolName": null,
+          "durationMs": 471,
+          "status": "error",
+          "inputSummary": "context + query",
+          "outputSummary": "Tool invocation timed out"
+        }
+      ]
+    },
+    {
+      "agentId": "agent-2",
+      "status": "completed",
+      "startedAt": "2026-08-15T13:40:23.037Z",
+      "durationMs": 1337,
+      "steps": [
+        {
+          "stepName": "retrieve_context",
+          "toolName": "vector_search",
+          "durationMs": 384,
+          "status": "success",
+          "inputSummary": "DOB 1985-03-14 verified against intake form",
+          "outputSummary": "3 documents retrieved"
+        },
+        {
+          "stepName": "generate_response",
+          "toolName": null,
+          "durationMs": 889,
+          "status": "success",
+          "inputSummary": "context + query",
+          "outputSummary": "Response generated"
+        }
+      ]
+    },
+    {
+      "agentId": "agent-3",
+      "status": "completed",
+      "startedAt": "2026-08-15T12:40:23.037Z",
+      "durationMs": 1366,
+      "steps": [
+        {
+          "stepName": "retrieve_context",
+          "toolName": "vector_search",
+          "durationMs": 365,
+          "status": "success",
+          "inputSummary": "Standard query, no PHI-shaped content",
+          "outputSummary": "3 documents retrieved"
+        },
+        {
+          "stepName": "generate_response",
+          "toolName": null,
+          "durationMs": 158,
+          "status": "success",
+          "inputSummary": "context + query",
+          "outputSummary": "Response generated"
+        }
+      ]
+    },
+    {
+      "agentId": "agent-4",
+      "status": "completed",
+      "startedAt": "2026-08-15T11:40:23.037Z",
+      "durationMs": 890,
+      "steps": [
+        {
+          "stepName": "retrieve_context",
+          "toolName": "vector_search",
+          "durationMs": 231,
+          "status": "success",
+          "inputSummary": "Patient SSN 123-45-6789 requires follow-up",
+          "outputSummary": "3 documents retrieved"
+        },
+        {
+          "stepName": "generate_response",
+          "toolName": null,
+          "durationMs": 949,
+          "status": "success",
+          "inputSummary": "context + query",
+          "outputSummary": "Response generated"
+        }
+      ]
+    },
+    {
+      "agentId": "agent-5",
+      "status": "completed",
+      "startedAt": "2026-08-15T10:40:23.037Z",
+      "durationMs": 1973,
+      "steps": [
+        {
+          "stepName": "retrieve_context",
+          "toolName": "vector_search",
+          "durationMs": 187,
+          "status": "success",
+          "inputSummary": "MRN 87654321 record accessed",
+          "outputSummary": "3 documents retrieved"
+        },
+        {
+          "stepName": "generate_response",
+          "toolName": null,
+          "durationMs": 120,
+          "status": "success",
+          "inputSummary": "context + query",
+          "outputSummary": "Response generated"
+        }
+      ]
+    },
+    {
+      "agentId": "agent-1",
+      "status": "failed",
+      "startedAt": "2026-08-15T09:40:23.037Z",
+      "durationMs": 805,
+      "steps": [
+        {
+          "stepName": "retrieve_context",
+          "toolName": "vector_search",
+          "durationMs": 172,
+          "status": "success",
+          "inputSummary": "DOB 1985-03-14 verified against intake form",
+          "outputSummary": "3 documents retrieved"
+        },
+        {
+          "stepName": "generate_response",
+          "toolName": null,
+          "durationMs": 447,
+          "status": "error",
+          "inputSummary": "context + query",
+          "outputSummary": "Tool invocation timed out"
+        }
+      ]
+    },
+    {
+      "agentId": "agent-2",
+      "status": "completed",
+      "startedAt": "2026-08-15T08:40:23.037Z",
+      "durationMs": 1931,
+      "steps": [
+        {
+          "stepName": "retrieve_context",
+          "toolName": "vector_search",
+          "durationMs": 208,
+          "status": "success",
+          "inputSummary": "Standard query, no PHI-shaped content",
+          "outputSummary": "3 documents retrieved"
+        },
+        {
+          "stepName": "generate_response",
+          "toolName": null,
+          "durationMs": 1174,
+          "status": "success",
+          "inputSummary": "context + query",
+          "outputSummary": "Response generated"
+        }
+      ]
+    },
+    {
+      "agentId": "agent-3",
+      "status": "completed",
+      "startedAt": "2026-08-15T07:40:23.037Z",
+      "durationMs": 665,
+      "steps": [
+        {
+          "stepName": "retrieve_context",
+          "toolName": "vector_search",
+          "durationMs": 105,
+          "status": "success",
+          "inputSummary": "Patient SSN 123-45-6789 requires follow-up",
+          "outputSummary": "3 documents retrieved"
+        },
+        {
+          "stepName": "generate_response",
+          "toolName": null,
+          "durationMs": 712,
+          "status": "success",
+          "inputSummary": "context + query",
+          "outputSummary": "Response generated"
+        }
+      ]
+    },
+    {
+      "agentId": "agent-4",
+      "status": "completed",
+      "startedAt": "2026-08-15T06:40:23.038Z",
+      "durationMs": 2188,
+      "steps": [
+        {
+          "stepName": "retrieve_context",
+          "toolName": "vector_search",
+          "durationMs": 153,
+          "status": "success",
+          "inputSummary": "MRN 87654321 record accessed",
+          "outputSummary": "3 documents retrieved"
+        },
+        {
+          "stepName": "generate_response",
+          "toolName": null,
+          "durationMs": 640,
+          "status": "success",
+          "inputSummary": "context + query",
+          "outputSummary": "Response generated"
+        }
+      ]
+    },
+    {
+      "agentId": "agent-5",
+      "status": "completed",
+      "startedAt": "2026-08-15T05:40:23.038Z",
+      "durationMs": 1115,
+      "steps": [
+        {
+          "stepName": "retrieve_context",
+          "toolName": "vector_search",
+          "durationMs": 306,
+          "status": "success",
+          "inputSummary": "DOB 1985-03-14 verified against intake form",
+          "outputSummary": "3 documents retrieved"
+        },
+        {
+          "stepName": "generate_response",
+          "toolName": null,
+          "durationMs": 404,
+          "status": "success",
+          "inputSummary": "context + query",
+          "outputSummary": "Response generated"
+        }
+      ]
+    },
+    {
+      "agentId": "agent-1",
+      "status": "failed",
+      "startedAt": "2026-08-15T04:40:23.038Z",
+      "durationMs": 1509,
+      "steps": [
+        {
+          "stepName": "retrieve_context",
+          "toolName": "vector_search",
+          "durationMs": 330,
+          "status": "success",
+          "inputSummary": "Standard query, no PHI-shaped content",
+          "outputSummary": "3 documents retrieved"
+        },
+        {
+          "stepName": "generate_response",
+          "toolName": null,
+          "durationMs": 1074,
+          "status": "error",
+          "inputSummary": "context + query",
+          "outputSummary": "Tool invocation timed out"
+        }
+      ]
+    },
+    {
+      "agentId": "agent-2",
+      "status": "completed",
+      "startedAt": "2026-08-15T03:40:23.038Z",
+      "durationMs": 1514,
+      "steps": [
+        {
+          "stepName": "retrieve_context",
+          "toolName": "vector_search",
+          "durationMs": 263,
+          "status": "success",
+          "inputSummary": "Patient SSN 123-45-6789 requires follow-up",
+          "outputSummary": "3 documents retrieved"
+        },
+        {
+          "stepName": "generate_response",
+          "toolName": null,
+          "durationMs": 1122,
+          "status": "success",
+          "inputSummary": "context + query",
+          "outputSummary": "Response generated"
+        }
+      ]
+    },
+    {
+      "agentId": "agent-3",
+      "status": "completed",
+      "startedAt": "2026-08-15T02:40:23.038Z",
+      "durationMs": 2060,
+      "steps": [
+        {
+          "stepName": "retrieve_context",
+          "toolName": "vector_search",
+          "durationMs": 147,
+          "status": "success",
+          "inputSummary": "MRN 87654321 record accessed",
+          "outputSummary": "3 documents retrieved"
+        },
+        {
+          "stepName": "generate_response",
+          "toolName": null,
+          "durationMs": 546,
+          "status": "success",
+          "inputSummary": "context + query",
+          "outputSummary": "Response generated"
+        }
+      ]
+    },
+    {
+      "agentId": "agent-4",
+      "status": "completed",
+      "startedAt": "2026-08-15T01:40:23.038Z",
+      "durationMs": 591,
+      "steps": [
+        {
+          "stepName": "retrieve_context",
+          "toolName": "vector_search",
+          "durationMs": 204,
+          "status": "success",
+          "inputSummary": "DOB 1985-03-14 verified against intake form",
+          "outputSummary": "3 documents retrieved"
+        },
+        {
+          "stepName": "generate_response",
+          "toolName": null,
+          "durationMs": 590,
+          "status": "success",
+          "inputSummary": "context + query",
+          "outputSummary": "Response generated"
+        }
+      ]
+    },
+    {
+      "agentId": "agent-5",
+      "status": "completed",
+      "startedAt": "2026-08-15T00:40:23.038Z",
+      "durationMs": 764,
+      "steps": [
+        {
+          "stepName": "retrieve_context",
+          "toolName": "vector_search",
+          "durationMs": 185,
+          "status": "success",
+          "inputSummary": "Standard query, no PHI-shaped content",
+          "outputSummary": "3 documents retrieved"
+        },
+        {
+          "stepName": "generate_response",
+          "toolName": null,
+          "durationMs": 504,
+          "status": "success",
+          "inputSummary": "context + query",
+          "outputSummary": "Response generated"
+        }
+      ]
+    }
+  ]
+}

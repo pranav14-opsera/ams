@@ -1,0 +1,11 @@
+{
+  "description": "Representative slice of 30-day agent health history (WO-057 AC) for frontend component/hook tests — a smaller sample than the backend's full 30-day fixture (frontend tests only need enough points to exercise chart rendering, not full data-volume fidelity).",
+  "points": [
+    { "bucket": "2026-07-17T00:00:00.000Z", "latencyP50Ms": 95, "latencyP99Ms": 210, "errorRateAvg": 0.002, "tokenConsumptionTotal": 120, "toolCallSuccessRateAvg": 0.998 },
+    { "bucket": "2026-07-24T00:00:00.000Z", "latencyP50Ms": 110, "latencyP99Ms": 260, "errorRateAvg": 0.004, "tokenConsumptionTotal": 150, "toolCallSuccessRateAvg": 0.996 },
+    { "bucket": "2026-07-31T00:00:00.000Z", "latencyP50Ms": 130, "latencyP99Ms": 5800, "errorRateAvg": 0.06, "tokenConsumptionTotal": 90, "toolCallSuccessRateAvg": 0.94 },
+    { "bucket": "2026-08-07T00:00:00.000Z", "latencyP50Ms": 100, "latencyP99Ms": 230, "errorRateAvg": 0.003, "tokenConsumptionTotal": 200, "toolCallSuccessRateAvg": 0.997 },
+    { "bucket": "2026-08-14T00:00:00.000Z", "latencyP50Ms": 105, "latencyP99Ms": 245, "errorRateAvg": 0.005, "tokenConsumptionTotal": 175, "toolCallSuccessRateAvg": 0.995 },
+    { "bucket": "2026-08-16T00:00:00.000Z", "latencyP50Ms": 98, "latencyP99Ms": 215, "errorRateAvg": 0.002, "tokenConsumptionTotal": 160, "toolCallSuccessRateAvg": 0.998 }
+  ]
+}
