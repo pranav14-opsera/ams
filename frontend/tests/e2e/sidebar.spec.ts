@@ -76,3 +76,17 @@ test("keyboard: Tab reaches a group trigger and Enter expands it, revealing its 
   await expect(page.getByRole("link", { name: "Agent Registry" })).toBeVisible();
   await expect(agentManagementTrigger).toHaveAttribute("aria-expanded", "true");
 });
+
+test("keyboard: ArrowDown/ArrowUp move focus between the group's items once expanded", async ({ page }) => {
+  await seedAuth(page, ADMIN_AUTH);
+  await page.goto("/");
+
+  await page.getByRole("button", { name: "Agent Management" }).click();
+  await page.getByRole("link", { name: "Agent Registry" }).focus();
+
+  await page.keyboard.press("ArrowDown");
+  await expect(page.getByRole("link", { name: "Lifecycle" })).toBeFocused();
+
+  await page.keyboard.press("ArrowUp");
+  await expect(page.getByRole("link", { name: "Agent Registry" })).toBeFocused();
+});
