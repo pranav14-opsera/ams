@@ -4,6 +4,7 @@ import { AgentStateTransitionsRepository } from "../agents/agent-state-transitio
 import { AgentsRepository } from "../agents/agents.repository";
 import { AnomalyDetectionModule } from "../anomaly-detection/anomaly-detection.module";
 import { PhiScrubberModule } from "../phi-scrubber/phi-scrubber.module";
+import { QualityScoreModule } from "../quality-score/quality-score.module";
 import { RbacModule } from "../rbac/rbac.module";
 import { AUDIT_SERVICE } from "../tenants/ports/audit-service.port";
 import { PostgresAuditService } from "../tenants/ports/postgres/postgres-audit.service";
@@ -21,7 +22,7 @@ import { HealthMetricsPublisherService } from "./health-metrics-publisher.servic
 // every module that needs it re-provides its own PostgresAuditService
 // binding (see subscription.module.ts, audit-retention.module.ts, etc.).
 @Module({
-  imports: [RbacModule, PhiScrubberModule, WebsocketGatewayModule, TraceModule, AnomalyDetectionModule],
+  imports: [RbacModule, PhiScrubberModule, WebsocketGatewayModule, TraceModule, AnomalyDetectionModule, QualityScoreModule],
   controllers: [DashboardController, AgentHealthDetailController],
   providers: [
     HealthDashboardRepository,

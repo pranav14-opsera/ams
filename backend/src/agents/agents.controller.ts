@@ -2,6 +2,7 @@ import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, Pat
 import type { Request } from "express";
 import { AlertThresholdService } from "../alerts/alert-threshold.service";
 import { CalibrationService } from "../anomaly-detection/calibration.service";
+import { QualityScoreService } from "../quality-score/quality-score.service";
 import { PermissionName } from "../rbac/rbac.constants";
 import { RequirePermission } from "../rbac/require-permission.decorator";
 import { AgentsService } from "./agents.service";
@@ -23,6 +24,7 @@ export class AgentsController {
     private readonly bulkLifecycleService: BulkLifecycleService,
     private readonly alertThresholdService: AlertThresholdService,
     private readonly calibrationService: CalibrationService,
+    private readonly qualityScoreService: QualityScoreService,
   ) {}
 
   @Post()
@@ -46,6 +48,12 @@ export class AgentsController {
       await this.calibrationService.startCalibration(req.tenantDbClient, req.tenantId!, agent.id);
     } catch (err) {
       this.logger.warn(`failed to start anomaly-detection calibration for agent ${agent.id}: ${err instanceof Error ? err.message : err}`);
+    }
+    // WO-063 AC: quality-score baseline calibration starts on agent registration — same best-effort, never-blocks-registration posture as the two try/catch blocks above.
+    try {
+      await this.qualityScoreService.startCalibration(req.tenantDbClient, req.tenantId!, agent.id);
+    } catch (err) {
+      this.logger.warn(`failed to start quality-score calibration for agent ${agent.id}: ${err instanceof Error ? err.message : err}`);
     }
     return agent;
   }
