@@ -1,30 +1,99 @@
 @import "tailwindcss";
 
-@theme {
-  --color-background: hsl(0 0% 100%);
-  --color-foreground: hsl(240 10% 3.9%);
-  --color-primary: hsl(240 5.9% 10%);
-  --color-primary-foreground: hsl(0 0% 98%);
-  --color-muted: hsl(240 4.8% 95.9%);
-  --color-muted-foreground: hsl(240 3.8% 46.1%);
-  --color-border: hsl(240 5.9% 90%);
+/*
+ * WO-052: full shadcn/ui semantic token palette (Zinc), defined as plain
+ * CSS custom properties on :root/.dark — NOT only inside a
+ * `@media (prefers-color-scheme: dark)` block. next-themes (attribute
+ * "class") toggles a real `.dark` class on <html>; a media-query-only
+ * palette (WO-050's original, minimal version) would never actually
+ * respond to that toggle when the OS itself is set to light — only to
+ * the OS preference directly. The `.dark` class selector is what makes
+ * the toggle (not just the OS) actually work. `@theme inline` then maps
+ * each Tailwind color utility (bg-background, text-foreground, ...) onto
+ * the current value of these custom properties, so the SAME utility
+ * classes automatically repaint when .dark is added/removed — no
+ * dark:-prefixed utility duplication needed anywhere.
+ */
+:root {
+  --background: 0 0% 100%;
+  --foreground: 240 10% 3.9%;
+  --card: 0 0% 100%;
+  --card-foreground: 240 10% 3.9%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 240 10% 3.9%;
+  --primary: 240 5.9% 10%;
+  --primary-foreground: 0 0% 98%;
+  --secondary: 240 4.8% 95.9%;
+  --secondary-foreground: 240 5.9% 10%;
+  --muted: 240 4.8% 95.9%;
+  /* AC: every token pair must independently verify >=4.5:1 — shadcn's own
+     commonly-published default (L 46.1%) measures 4.39:1 against this
+     background, found by this WO's own contrast-check.test.ts. Darkened
+     to 42% (5.10:1). */
+  --muted-foreground: 240 3.8% 42%;
+  --accent: 240 4.8% 95.9%;
+  --accent-foreground: 240 5.9% 10%;
+  /* Same finding: shadcn's default destructive (L 60.2%) measures only
+     3.60:1 against its near-white foreground. Darkened to 45% (5.19:1). */
+  --destructive: 0 84.2% 45%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 240 5.9% 90%;
+  --input: 240 5.9% 90%;
+  --ring: 240 5.9% 10%;
 }
 
-@media (prefers-color-scheme: dark) {
-  @theme {
-    --color-background: hsl(240 10% 3.9%);
-    --color-foreground: hsl(0 0% 98%);
-    --color-primary: hsl(0 0% 98%);
-    --color-primary-foreground: hsl(240 5.9% 10%);
-    --color-muted: hsl(240 3.7% 15.9%);
-    --color-muted-foreground: hsl(240 5% 64.9%);
-    --color-border: hsl(240 3.7% 15.9%);
-  }
+.dark {
+  --background: 240 10% 3.9%;
+  --foreground: 0 0% 98%;
+  --card: 240 10% 3.9%;
+  --card-foreground: 0 0% 98%;
+  --popover: 240 10% 3.9%;
+  --popover-foreground: 0 0% 98%;
+  --primary: 0 0% 98%;
+  --primary-foreground: 240 5.9% 10%;
+  --secondary: 240 3.7% 15.9%;
+  --secondary-foreground: 0 0% 98%;
+  --muted: 240 3.7% 15.9%;
+  --muted-foreground: 240 5% 64.9%;
+  --accent: 240 3.7% 15.9%;
+  --accent-foreground: 0 0% 98%;
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 240 3.7% 15.9%;
+  --input: 240 3.7% 15.9%;
+  --ring: 240 4.9% 83.9%;
+}
+
+@theme inline {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
 }
 
 body {
   background-color: var(--color-background);
   color: var(--color-foreground);
+  /* AC: smooth 150ms transition on theme switch, no layout shift (only
+     color-affecting properties transition, nothing that affects box size). */
+  transition:
+    background-color 150ms ease-in-out,
+    color 150ms ease-in-out;
 }
 
 /* WO-051: SidebarGroup's animated expand/collapse (Radix Collapsible sets
