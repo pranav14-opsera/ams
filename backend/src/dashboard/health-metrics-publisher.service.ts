@@ -5,7 +5,11 @@ import { DashboardService, type RequestActorContext } from "./dashboard.service"
 import { HealthDashboardRepository } from "./health-dashboard.repository";
 import { ListAgentHealthQueryDto } from "./dto/list-agent-health-query.dto";
 
-const NO_FILTERS: ListAgentHealthQueryDto = new ListAgentHealthQueryDto();
+// WO-058: explicit limit, not the DTO's own default (50) — this query
+// represents "the whole fleet" for the live WebSocket push, not one
+// paginated REST page, and this WO's own scaling target is 500+ agents
+// per tenant.
+const FULL_FLEET_SNAPSHOT_FILTERS: ListAgentHealthQueryDto = Object.assign(new ListAgentHealthQueryDto(), { limit: 1000 });
 
 /**
  * Bridges the health-metrics read path to HealthGateway's "health"
@@ -43,7 +47,7 @@ export class HealthMetricsPublisherService {
       // (unlike the REST path, which runs inside TenantContextMiddleware's
       // own transaction) — withTenantScope opens one, since the fan-out
       // query reads a tenant-RLS-scoped view.
-      const snapshot = await this.repository.withTenantScope(tenantId, (scopedClient) => this.dashboardService.getFleetHealth(scopedClient, ctx, NO_FILTERS));
+      const snapshot = await this.repository.withTenantScope(tenantId, (scopedClient) => this.dashboardService.getFleetHealth(scopedClient, ctx, FULL_FLEET_SNAPSHOT_FILTERS));
       await this.pubsub.publish(tenantId, "health", { payload: snapshot });
     } catch (err) {
       this.logger.warn(`failed to publish health update for tenant ${tenantId}: ${err instanceof Error ? err.message : err}`);

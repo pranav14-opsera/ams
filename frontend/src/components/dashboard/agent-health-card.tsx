@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { AgentHealthViewModel } from "@/types/dashboard";
@@ -22,7 +23,7 @@ export interface AgentHealthCardProps {
 }
 
 /** AC: semantic color coding for status, click-to-drill-down. Sparkline trend is a follow-up (WO-057's own drill-down scope per the traceability notes) — this card surfaces the current snapshot, not a time series. */
-export function AgentHealthCard({ agent, onSelect }: AgentHealthCardProps) {
+function AgentHealthCardImpl({ agent, onSelect }: AgentHealthCardProps) {
   return (
     <Card
       role={onSelect ? "button" : undefined}
@@ -67,3 +68,31 @@ export function AgentHealthCard({ agent, onSelect }: AgentHealthCardProps) {
     </Card>
   );
 }
+
+/**
+ * WO-058: at 500+ agents, re-rendering every card on every fleet update
+ * (even ones whose own data didn't change) is exactly the kind of
+ * excessive-re-render cost this WO's AC calls out. Comparing only the
+ * fields actually rendered — not reference equality on `agent` or
+ * `onSelect` — means a card only re-renders when ITS OWN displayed data
+ * changed, regardless of how many sibling cards' data changed in the
+ * same batched update, or whether the parent passed a fresh onSelect
+ * closure this render (it does, on every render — comparing its
+ * reference would defeat the whole point of memoizing).
+ */
+function arePropsEqual(prev: AgentHealthCardProps, next: AgentHealthCardProps): boolean {
+  return (
+    prev.agent.id === next.agent.id &&
+    prev.agent.name === next.agent.name &&
+    prev.agent.framework === next.agent.framework &&
+    prev.agent.status === next.agent.status &&
+    prev.agent.latencyP50Ms === next.agent.latencyP50Ms &&
+    prev.agent.latencyP99Ms === next.agent.latencyP99Ms &&
+    prev.agent.errorRateAvg === next.agent.errorRateAvg &&
+    prev.agent.tokenConsumptionTotal === next.agent.tokenConsumptionTotal &&
+    prev.agent.toolCallSuccessRateAvg === next.agent.toolCallSuccessRateAvg &&
+    Boolean(prev.onSelect) === Boolean(next.onSelect)
+  );
+}
+
+export const AgentHealthCard = memo(AgentHealthCardImpl, arePropsEqual);
