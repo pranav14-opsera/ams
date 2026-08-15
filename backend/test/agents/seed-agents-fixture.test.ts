@@ -1,3 +1,4 @@
+import { buildAdapterHealthService } from "../helpers/build-adapter-health-service";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Pool } from "pg";
@@ -40,7 +41,7 @@ test("seedAgents produces 12 real agents across 2 tenants, 3 teams, all 4 framew
     const saga = new TenantProvisioningSaga(pool, new TenantRepository(), new TenantKeyMetadataRepository(), kms, new PostgresRbacService(pool), new PostgresAuditService(pool));
     const audit = new PostgresAuditService(pool);
     const encryptionService = new EncryptionService(pool, kms, new TenantKeyMetadataRepository(), audit);
-    const service = new AgentsService(pool, new AgentsRepository(pool), encryptionService, audit);
+    const service = new AgentsService(pool, new AgentsRepository(pool), encryptionService, audit, buildAdapterHealthService(pool));
 
     const tenantA = await saga.provision({ name: "Seed Fixture Tenant A", slug: slugA, dataResidencyRegion: "us", actorId: null });
     const tenantB = await saga.provision({ name: "Seed Fixture Tenant B", slug: slugB, dataResidencyRegion: "us", actorId: null });

@@ -1,3 +1,4 @@
+import { buildAdapterHealthService } from "../helpers/build-adapter-health-service";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Pool } from "pg";
@@ -48,7 +49,7 @@ test("seedBulkAgents produces 54 real agents across 3 teams in a mix of lifecycl
     const audit = new PostgresAuditService(pool);
     const encryptionService = new EncryptionService(pool, kms, new TenantKeyMetadataRepository(), audit);
     const agentsRepository = new AgentsRepository(pool);
-    const service = new AgentsService(pool, agentsRepository, encryptionService, audit);
+    const service = new AgentsService(pool, agentsRepository, encryptionService, audit, buildAdapterHealthService(pool));
     const lifecycleService = new LifecycleService(agentsRepository, new AgentStateTransitionsRepository(pool), audit, inFlightOperations, pubsub);
 
     const tenant = await saga.provision({ name: "Bulk Seed Fixture Tenant", slug, dataResidencyRegion: "us", actorId: null });

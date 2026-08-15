@@ -1,3 +1,4 @@
+import { buildAdapterHealthService } from "../../helpers/build-adapter-health-service";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
@@ -53,7 +54,7 @@ async function buildRig(pool: Pool) {
   const audit = new PostgresAuditService(pool);
   const encryptionService = new EncryptionService(pool, kms, new TenantKeyMetadataRepository(), audit);
   const agentsRepository = new AgentsRepository(pool);
-  const agentsService = new AgentsService(pool, agentsRepository, encryptionService, audit);
+  const agentsService = new AgentsService(pool, agentsRepository, encryptionService, audit, buildAdapterHealthService(pool));
   const hmacMiddleware = new HmacValidationMiddleware(agentsRepository, encryptionService);
 
   const pipeline = new TelemetryPipelineService(
