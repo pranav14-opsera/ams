@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { HealthDashboardRepository } from "../dashboard/health-dashboard.repository";
-import { RedisPubSubService } from "../websocket-gateway/redis-pubsub.service";
+import { AlertDeliveryService } from "./alert-delivery.service";
 import { AlertEventRepository } from "./alert-event.repository";
 import { AlertThresholdRepository } from "./alert-threshold.repository";
 import { MetricSnapshotCacheService, type MetricSnapshot } from "./metric-snapshot-cache.service";
@@ -18,7 +18,7 @@ export class ThresholdEvaluatorService {
     private readonly eventRepository: AlertEventRepository,
     private readonly snapshotCache: MetricSnapshotCacheService,
     private readonly healthRepository: HealthDashboardRepository,
-    private readonly pubsub: RedisPubSubService,
+    private readonly alertDeliveryService: AlertDeliveryService,
   ) {}
 
   /**
@@ -78,7 +78,12 @@ export class ThresholdEvaluatorService {
       });
 
       generatedEvents.push(event);
-      await this.pubsub.publish(tenantId, "alerts", { payload: event }).catch((err) => this.logger.warn(`failed to publish alert event ${event.id}: ${err instanceof Error ? err.message : err}`));
+      // WO-060: AlertDeliveryService is now the single owner of "how an
+      // alert reaches every configured channel" (websocket/webhook/
+      // email) — this evaluator no longer publishes to the WS channel
+      // directly itself (that would double-deliver alongside
+      // AlertDeliveryService's own WebSocketAlertChannelService).
+      await this.alertDeliveryService.deliver(event).catch((err) => this.logger.warn(`alert delivery failed for event ${event.id}: ${err instanceof Error ? err.message : err}`));
     }
 
     return generatedEvents;
