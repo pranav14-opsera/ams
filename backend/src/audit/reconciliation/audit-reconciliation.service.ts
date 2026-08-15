@@ -5,6 +5,8 @@ import { PG_POOL } from "../../common/database/database.module";
 import { ActorType, type CanonicalAuditEvent } from "../events/canonical-audit-event";
 import { AuditEventConsumerPipelineService } from "../events/audit-event-consumer-pipeline.service";
 import { AuditEventProducerService } from "../events/audit-event-producer.service";
+import { COLD_STORAGE_ADAPTER, type ColdStorageAdapterPort } from "../retention/cold-storage-adapter.port";
+import { ColdStorageManifestRepository } from "../retention/cold-storage-manifest.repository";
 import { AuditIngestionCounterRepository } from "./audit-ingestion-counter.repository";
 import { AuditReconciliationReportRepository } from "./audit-reconciliation-report.repository";
 import type { ReconciliationReport } from "./audit-reconciliation-report.repository";
@@ -38,6 +40,8 @@ export class AuditReconciliationService {
     private readonly reportRepository: AuditReconciliationReportRepository,
     private readonly auditProducer: AuditEventProducerService,
     private readonly auditPipeline: AuditEventConsumerPipelineService,
+    private readonly manifestRepository: ColdStorageManifestRepository,
+    @Inject(COLD_STORAGE_ADAPTER) private readonly coldStorage: ColdStorageAdapterPort,
   ) {}
 
   async runDailyReconciliation(tenantId: string, periodStart: Date, periodEnd: Date, tolerancePercentage = DEFAULT_TOLERANCE_PERCENTAGE): Promise<ReconciliationReport> {
@@ -63,7 +67,17 @@ export class AuditReconciliationService {
       client.release();
     }
 
-    const actualCount = persistedCount + dlqCount;
+    // WO-049: a reconciliation period that reaches back far enough to
+    // overlap a partition ColdStorageTieringService has already archived
+    // and physically dropped from audit_events must NOT count that data
+    // as a gap — it was successfully persisted, then legitimately tiered,
+    // not lost. In normal daily operation this never fires (the daily
+    // window is "yesterday," always <<90 days old, and tiering only ever
+    // touches partitions >90 days old) — this only matters for a
+    // reconciliation run explicitly covering an older historical window.
+    const tieredCount = await this.countTieredRowsForTenant(tenantId, periodStart, periodEnd);
+
+    const actualCount = persistedCount + dlqCount + tieredCount;
     const gapCount = Math.max(0, expectedCount - actualCount);
     const gapPercentage = expectedCount > 0 ? (gapCount / expectedCount) * 100 : 0;
     const status = gapPercentage > tolerancePercentage ? "discrepancy_detected" : "healthy";
@@ -89,7 +103,7 @@ export class AuditReconciliationService {
           tolerancePercentage,
           status,
           alertTriggered,
-          details: { persistedCount, dlqCount },
+          details: { persistedCount, dlqCount, tieredCount },
         },
         reportClient,
       ),
@@ -137,6 +151,22 @@ export class AuditReconciliationService {
     } finally {
       client.release();
     }
+  }
+
+  /** Counts this tenant's own rows within [periodStart, periodEnd] across every cold-storage archive whose partition overlaps the period — the tiering job's equivalent of "already accounted for," not a gap. */
+  private async countTieredRowsForTenant(tenantId: string, periodStart: Date, periodEnd: Date): Promise<number> {
+    const manifests = await this.manifestRepository.findOverlappingUnpurged(periodStart, periodEnd);
+    if (manifests.length === 0) return 0;
+
+    let count = 0;
+    for (const manifest of manifests) {
+      for await (const row of this.coldStorage.readArchive(manifest.storageKey)) {
+        if (row.tenant_id !== tenantId) continue;
+        const occurredAt = new Date(row.occurred_at as string);
+        if (occurredAt >= periodStart && occurredAt <= periodEnd) count++;
+      }
+    }
+    return count;
   }
 
   /** audit_reconciliation_reports is RLS-protected like every other tenant-scoped table — needs app.current_tenant set, which the earlier read-only aggregation queries' OWN client (already released by this point) doesn't carry forward. */
