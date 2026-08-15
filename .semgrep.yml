@@ -130,6 +130,13 @@ rules:
         # tick also runs outside any request/tenant context and needs to
         # discover which tenants have anomaly detection enabled at all.
         - backend/src/anomaly-detection/drift-detection-config.repository.ts
+        # WO-065: the flagged query is `SELECT pg_advisory_xact_lock($1)`
+        # — a session-level advisory lock keyed by a composite string
+        # (already embedding tenant_id), not a query against any
+        # tenant-scoped table at all. Every other query in this file
+        # (the balance/transaction reads and the actual INSERT) is
+        # tenant-scoped and untouched by this exclusion.
+        - backend/src/credits/credit-transaction.repository.ts
     metadata:
       category: security
       references:
