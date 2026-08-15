@@ -14,6 +14,7 @@ import { TenantContextMiddleware } from "./common/tenant-context.middleware";
 import { HealthController } from "./health.controller";
 import { AgentsModule } from "./agents/agents.module";
 import { AlertsModule } from "./alerts/alerts.module";
+import { AnomalyDetectionModule } from "./anomaly-detection/anomaly-detection.module";
 import { AuditModule } from "./audit/audit.module";
 import { DashboardModule } from "./dashboard/dashboard.module";
 import { GatewayModule } from "./gateway/gateway.module";
@@ -71,6 +72,7 @@ const ADAPTER_TELEMETRY_ROUTES = ["api/v1/adapters/*/telemetry"];
     AgentsModule,
     DashboardModule,
     AlertsModule,
+    AnomalyDetectionModule,
     AdaptersModule,
     LangChainModule,
     RestModule,

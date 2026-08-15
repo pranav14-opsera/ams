@@ -125,6 +125,11 @@ rules:
         # findByIdAcrossTenants above. Every other query in this file is
         # tenant-scoped.
         - backend/src/alerts/alert-threshold.repository.ts
+        # WO-061: same class as alert-threshold.repository.ts's own
+        # findDistinctTenantIds above — the anomaly-detection scheduler
+        # tick also runs outside any request/tenant context and needs to
+        # discover which tenants have anomaly detection enabled at all.
+        - backend/src/anomaly-detection/drift-detection-config.repository.ts
     metadata:
       category: security
       references:

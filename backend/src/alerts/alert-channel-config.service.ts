@@ -32,6 +32,8 @@ const SYNTHETIC_TEST_EVENT: Omit<AlertEvent, "id" | "tenantId"> = {
   actualValue: 0.99,
   severity: "critical",
   breachTimestamp: new Date(0),
+  detectionMethod: "threshold",
+  statisticalEvidence: null,
 };
 
 @Injectable()

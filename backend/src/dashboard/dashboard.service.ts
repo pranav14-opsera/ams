@@ -1,5 +1,7 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import type { Pool, PoolClient } from "pg";
+import { CalibrationService } from "../anomaly-detection/calibration.service";
+import type { CalibrationStatus } from "../anomaly-detection/anomaly-detection.types";
 import { DataClassification } from "../classification/data-classification.enum";
 import { PhiScrubberService } from "../phi-scrubber/phi-scrubber.service";
 import { PlatformRoleName } from "../rbac/rbac.constants";
@@ -22,6 +24,8 @@ export interface AgentHealthViewModel {
   tokenConsumptionTotal: number | null;
   toolCallSuccessRateAvg: number | null;
   metricsBucket: string | null;
+  /** WO-061: present only when anomaly detection has ever been configured for this agent — undefined (not fabricated as "not calibrating") if the anomaly-detection module isn't wired up at all (e.g. some test rigs that don't pass a CalibrationService) or the agent has no anomaly config. */
+  calibrationStatus?: CalibrationStatus;
 }
 
 export interface FleetHealthSummary {
@@ -61,6 +65,8 @@ export class DashboardService {
     private readonly cache: HealthCacheService,
     private readonly phiScrubber: PhiScrubberService,
     @Inject(AUDIT_SERVICE) private readonly auditService: AuditServicePort,
+    /** Optional — WO-061's anomaly detection wires this in production; existing call sites (tests, and callers predating WO-061) that don't pass it simply never see a calibrationStatus on the returned agents, which is correct (not fabricated) rather than a breaking change to this constructor's existing 5-arg call sites. */
+    private readonly calibrationService?: CalibrationService,
   ) {}
 
   /**
@@ -112,6 +118,8 @@ export class DashboardService {
       .map((row) => this.toViewModel(row))
       .filter((agent) => !query.status || agent.status === query.status);
 
+    await this.attachCalibrationStatus(client, ctx.tenantId, viewModels);
+
     const result: FleetHealthResult = {
       summary: this.computeSummary(viewModels, total),
       agents: this.scrub(viewModels),
@@ -130,6 +138,24 @@ export class DashboardService {
 
     this.recordAccessAuditEvent(ctx, query);
     return result;
+  }
+
+  /** AC: "Calibrating" badge + days remaining. Mutates the already-built view models in place — a no-op (leaves calibrationStatus undefined on every agent) when calibrationService wasn't provided, or on any query failure (this is a nice-to-have dashboard affordance, never worth failing the whole fleet-health response over). */
+  private async attachCalibrationStatus(client: Pool | PoolClient | undefined, tenantId: string, agents: AgentHealthViewModel[]): Promise<void> {
+    if (!this.calibrationService || agents.length === 0) return;
+    try {
+      const statusByAgent = await this.calibrationService.getFleetCalibrationStatus(
+        client,
+        tenantId,
+        agents.map((a) => a.id),
+      );
+      for (const agent of agents) {
+        const status = statusByAgent.get(agent.id);
+        if (status) agent.calibrationStatus = status;
+      }
+    } catch (err) {
+      this.logger.warn(`failed to attach calibration status for tenant ${tenantId}: ${err instanceof Error ? err.message : err}`);
+    }
   }
 
   private toViewModel(row: AgentHealthRow): AgentHealthViewModel {
