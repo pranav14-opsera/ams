@@ -1,6 +1,7 @@
 import { CanActivate, ExecutionContext, HttpException, HttpStatus, Injectable } from "@nestjs/common";
-import { randomUUID } from "node:crypto";
 import type { Request, Response } from "express";
+import { ErrorCode } from "../shared/errors/error-codes.enum";
+import { getRequestId } from "../shared/errors/request-id";
 import { RATE_LIMIT_CONFIG, RATE_LIMIT_EXEMPT_PATHS } from "./rate-limit.config";
 import { RateLimitConfigService } from "./rate-limit-config.service";
 import { RateLimitMetricsService } from "./rate-limit-metrics.service";
@@ -74,7 +75,7 @@ export class RateLimiterGuard implements CanActivate {
   }
 
   private reject(res: Response, req: Request, scope: "tenant" | "user", result: RateLimitCheckResult): never {
-    const requestId = (req.headers["x-request-id"] as string | undefined) ?? randomUUID();
+    const requestId = getRequestId(req);
     const retryAfterSeconds = Math.max(1, Math.ceil((result.resetAt.getTime() - Date.now()) / 1000));
 
     res.setHeader("Retry-After", String(retryAfterSeconds));
@@ -84,7 +85,7 @@ export class RateLimiterGuard implements CanActivate {
 
     throw new HttpException(
       {
-        error: "rate_limit_exceeded",
+        error: ErrorCode.RATE_LIMIT_EXCEEDED,
         message: `The ${scope}-level rate limit of ${result.limit} requests/second was exceeded.`,
         retry_after: retryAfterSeconds,
         request_id: requestId,

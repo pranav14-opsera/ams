@@ -20,7 +20,7 @@ function fakeMatrixCache(grantingRoles: string[]) {
 test("enriches an RbacGuard-shaped denial with granting_roles", async () => {
   const filter = new RbacForbiddenExceptionFilter(fakeMatrixCache(["platform_admin", "finance_manager"]));
   const res = fakeResponse();
-  const exception = new ForbiddenException({ error: "FORBIDDEN", message: "Permission x required.", required_permission: "credit_management:allocation:manage", request_id: "req-1" });
+  const exception = new ForbiddenException({ error: "forbidden", message: "Permission x required.", required_permission: "credit_management:allocation:manage", request_id: "req-1" });
 
   await filter.catch(exception, fakeHost(res));
 

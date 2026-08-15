@@ -9,6 +9,7 @@ import { GatewayModule } from "./gateway/gateway.module";
 import { PhiScrubberModule } from "./phi-scrubber/phi-scrubber.module";
 import { RbacModule } from "./rbac/rbac.module";
 import { ScimModule } from "./scim/scim.module";
+import { SharedErrorsModule } from "./shared/errors/shared-errors.module";
 import { TenantsModule } from "./tenants/tenants.module";
 
 const PRE_AUTH_ROUTES = [
@@ -33,7 +34,12 @@ const SCIM_ROUTES = ["scim/v2/Users", "scim/v2/Users/*", "scim/v2/Groups", "scim
   // GatewayModule (WO-027's RateLimiterGuard) is imported BEFORE
   // RbacModule so its APP_GUARD runs first — an over-quota request is
   // rejected before any authorization-check work happens at all.
-  imports: [DatabaseModule, ClassificationModule, PhiScrubberModule, AuthModule, TenantsModule, GatewayModule, RbacModule, ScimModule],
+  // SharedErrorsModule (WO-029) is imported LAST so its catch-all
+  // GlobalExceptionFilter only ever sees exceptions no more specific
+  // registered filter (RbacForbiddenExceptionFilter, etc.) already
+  // handled — NestJS resolves overlapping global filters in
+  // registration order, first match wins.
+  imports: [DatabaseModule, ClassificationModule, PhiScrubberModule, AuthModule, TenantsModule, GatewayModule, RbacModule, ScimModule, SharedErrorsModule],
   controllers: [HealthController],
 })
 export class AppModule implements NestModule {
