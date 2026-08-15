@@ -1,5 +1,6 @@
 "use client";
 
+import type { KeyboardEvent } from "react";
 import { Menu, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { NAVIGATION_CONFIG } from "@/config/navigation";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -7,6 +8,23 @@ import { useSidebarState } from "@/hooks/useSidebarState";
 import { Button } from "@/components/ui/button";
 import { MobileDrawer } from "./mobile-drawer";
 import { SidebarGroup } from "./sidebar-group";
+
+const FOCUSABLE_SELECTOR = "a[href], button:not([disabled])";
+
+/** AC: "Arrow keys navigate within groups." Moves focus among the currently visible/focusable items (group triggers + links) in DOM order — a collapsed group's own children aren't in the DOM at all, so this naturally scopes to whatever is actually expanded. */
+function handleArrowNavigation(event: KeyboardEvent<HTMLElement>) {
+  if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+  const nav = event.currentTarget;
+  const focusable = Array.from(nav.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR));
+  if (focusable.length === 0) return;
+
+  const currentIndex = focusable.indexOf(document.activeElement as HTMLElement);
+  const delta = event.key === "ArrowDown" ? 1 : -1;
+  const nextIndex = currentIndex === -1 ? 0 : (currentIndex + delta + focusable.length) % focusable.length;
+
+  event.preventDefault();
+  focusable[nextIndex]?.focus();
+}
 
 function NavigationTree({
   collapsed,
@@ -23,7 +41,8 @@ function NavigationTree({
   const visibleGroups = filterNavigation(NAVIGATION_CONFIG);
 
   return (
-    <nav aria-label="Primary" className="flex flex-col gap-1">
+    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- WAI-ARIA's own "Managing Focus Within Groups" pattern: a keydown listener on the landmark container implementing roving-tabindex-style arrow navigation for its interactive descendants (the group triggers/links themselves, not the <nav> itself, are what's activated).
+    <nav aria-label="Primary" className="flex flex-col gap-1" onKeyDown={handleArrowNavigation}>
       {visibleGroups.map((group) => (
         <SidebarGroup
           key={group.id}
