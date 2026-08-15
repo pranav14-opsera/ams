@@ -19,6 +19,7 @@ import { AuditModule } from "./audit/audit.module";
 import { DashboardModule } from "./dashboard/dashboard.module";
 import { GatewayModule } from "./gateway/gateway.module";
 import { PhiScrubberModule } from "./phi-scrubber/phi-scrubber.module";
+import { QualityScoreModule } from "./quality-score/quality-score.module";
 import { RbacModule } from "./rbac/rbac.module";
 import { ScimModule } from "./scim/scim.module";
 import { SharedErrorsModule } from "./shared/errors/shared-errors.module";
@@ -73,6 +74,7 @@ const ADAPTER_TELEMETRY_ROUTES = ["api/v1/adapters/*/telemetry"];
     DashboardModule,
     AlertsModule,
     AnomalyDetectionModule,
+    QualityScoreModule,
     AdaptersModule,
     LangChainModule,
     RestModule,

@@ -6,6 +6,8 @@ import { AgentStateTransitionsRepository } from "../agents/agent-state-transitio
 import { AgentsRepository } from "../agents/agents.repository";
 import { PlatformRoleName } from "../rbac/rbac.constants";
 import { TeamMembershipRepository } from "../rbac/team-membership.repository";
+import { QualityScoreService } from "../quality-score/quality-score.service";
+import type { AgentQualityScoreSummary } from "../quality-score/quality-score.types";
 import type { RequestActorContext } from "./dashboard.service";
 import { granularityForRange, sinceIsoForRange, type TimeRange } from "./health-history.util";
 import { computeDriftStatus, computeQualityScore, type DriftStatus } from "./quality-score.util";
@@ -26,8 +28,11 @@ export interface AgentHealthHistoryResult {
   agentId: string;
   range: TimeRange;
   points: HealthHistoryPoint[];
+  /** WO-057's own lightweight proxy — kept as-is (see quality-score.util.ts's own doc comment). */
   qualityScore: number | null;
   driftStatus: DriftStatus;
+  /** WO-063's real, weighted-composite quality score engine — undefined when the QualityScoreService isn't wired (e.g. test rigs that don't pass one), not fabricated as "no data". */
+  realQualityScore?: AgentQualityScoreSummary;
 }
 
 export interface LifecycleHistoryEntry {
@@ -58,6 +63,8 @@ export class AgentHealthDetailService {
     private readonly stateTransitionsRepository: AgentStateTransitionsRepository,
     private readonly traceService: TraceService,
     private readonly teamMembershipRepository: TeamMembershipRepository,
+    /** Optional — WO-063 wires this in production; existing call sites that don't pass it simply never see realQualityScore on the response, not a breaking change to this constructor's existing 5-arg call sites. */
+    private readonly qualityScoreService?: QualityScoreService,
   ) {}
 
   private async assertAgentAccessible(client: Pool | PoolClient | undefined, ctx: RequestActorContext, agentId: string) {
@@ -93,13 +100,25 @@ export class AgentHealthDetailService {
     }));
 
     const latest = rows.at(-1) ?? null;
+    const realQualityScore = await this.getRealQualityScore(client, ctx.tenantId, agentId);
     return {
       agentId,
       range,
       points,
       qualityScore: latest ? computeQualityScore(latest.toolCallSuccessRateAvg, latest.errorRateAvg) : null,
       driftStatus: this.computeDrift(rows),
+      ...(realQualityScore ? { realQualityScore } : {}),
     };
+  }
+
+  /** No-ops (returns undefined) if qualityScoreService wasn't provided or the lookup fails — a nice-to-have addition to this response, never worth failing the whole health-history call over. */
+  private async getRealQualityScore(client: Pool | PoolClient | undefined, tenantId: string, agentId: string): Promise<AgentQualityScoreSummary | undefined> {
+    if (!this.qualityScoreService) return undefined;
+    try {
+      return await this.qualityScoreService.getAgentSummary(client, tenantId, agentId);
+    } catch {
+      return undefined;
+    }
   }
 
   /** "Recent" = the latest bucket; "baseline" = the average of every earlier bucket in the requested range. Both windows come from the SAME query result — no second query. */
