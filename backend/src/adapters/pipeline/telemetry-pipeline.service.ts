@@ -73,8 +73,35 @@ export class TelemetryPipelineService {
     private readonly phiQuarantineRepository: PhiQuarantineRepository,
   ) {}
 
-  async process(client: Pool | PoolClient | undefined, event: CanonicalTelemetryEvent): Promise<TelemetryPipelineResult> {
+  /**
+   * `onStage` is WO-044's optional per-segment latency hook — a load
+   * test harness passes it to record how long each stage of THIS
+   * synchronous, single-process pipeline took (schema validation, tenant
+   * enrichment + classification, PHI scrub + secondary validation, the
+   * Kafka publish attempt, the Postgres metrics write). It's a no-op by
+   * default so every existing call site (constructor signature is
+   * unchanged) and every existing test is unaffected. This does NOT
+   * simulate the real multi-broker Kafka segments WO-044's own AC
+   * describes (ingestion->Kafka, Kafka->consumer) — this sandbox has no
+   * reachable broker, so those collapse into one in-process call here;
+   * see LOAD_TEST_RESULTS.md for the full accounting of what is and
+   * isn't genuinely measured.
+   */
+  async process(
+    client: Pool | PoolClient | undefined,
+    event: CanonicalTelemetryEvent,
+    onStage?: (stage: string, elapsedMs: number) => void,
+  ): Promise<TelemetryPipelineResult> {
+    let stageStart = process.hrtime.bigint();
+    const mark = (stage: string) => {
+      if (!onStage) return;
+      const now = process.hrtime.bigint();
+      onStage(stage, Number(now - stageStart) / 1_000_000);
+      stageStart = now;
+    };
+
     const validation = this.schemaValidator.validate(event);
+    mark("schema_validation");
     if (!validation.valid) {
       // AC: "logged with the validation errors but without the raw
       // payload content" — errors reference field paths only, never the
@@ -91,6 +118,7 @@ export class TelemetryPipelineService {
       tenantSettings: tenant?.settings ?? null,
       fields: event as unknown as Record<string, unknown>,
     });
+    mark("tenant_enrichment_and_classification");
 
     // WO-043: never fail open. Any exception during scrubbing/validation
     // itself (not a Kafka publish failure — that's handled separately
@@ -119,6 +147,8 @@ export class TelemetryPipelineService {
     // Defense-in-depth quarantine gate: re-scan the ALREADY-scrubbed
     // output. If PHI-shaped content survived the primary pass, this event
     // must never reach Kafka.
+    mark("phi_scrub_and_secondary_validation");
+
     if (this.phiSecondaryValidator.hasResidualPhi(scrubbedMetadata, tenant?.settings ?? null)) {
       this.logger.error(`telemetry event ${event.event_id} failed secondary PHI validation after primary scrubbing — quarantining instead of publishing`);
       await this.phiQuarantineRepository.record(client, outboundEvent, "Secondary PHI validation detected residual PHI-shaped content after primary scrubbing.");
@@ -135,12 +165,14 @@ export class TelemetryPipelineService {
       await this.deadLetterRepository.record(client, outboundEvent, message);
       deadLettered = true;
     }
+    mark("kafka_publish_attempt");
 
     // WO-041: feeds the pre-existing agent_metrics rolling-aggregate
     // pipeline (migration 007) — recorded regardless of Kafka publish
     // outcome, since this is about the agent's own observed behavior,
     // not about delivery status.
     await this.metricsAggregator.recordCanonicalEvent(client, outboundEvent);
+    mark("postgres_metrics_write");
 
     return { accepted: true, eventId: event.event_id, dataClassification: tagged.data_classification, deadLettered, quarantined: false };
   }
@@ -154,16 +186,16 @@ export class TelemetryPipelineService {
   private scrubMetadata(metadata: Record<string, unknown>, tenantSettings: Record<string, unknown> | null): { scrubbedMetadata: Record<string, unknown>; detections: PhiDetection[] } {
     const { result: fieldScrubbedMetadata, detections: fieldDetections } = this.phiScrubber.scrubWithDetections(metadata, tenantSettings);
 
-    // scrubText() does substring-level masking over the JSON-serialized,
-    // already-field-scrubbed metadata to catch PHI embedded inside a
-    // longer free-text string (e.g. a LangChain error message like "rate
-    // limit exceeded for patient SSN 123-45-6789") that scrub()'s
-    // field-name/exact-whole-value matching alone would miss (WO-035).
-    const serializedFieldScrubbed = JSON.stringify(fieldScrubbedMetadata);
-    const serializedFullyScrubbed = this.phiScrubber.scrubText(serializedFieldScrubbed, tenantSettings);
+    // scrubEmbeddedText() does substring-level masking over each STRING
+    // leaf (not the whole serialized document — see its own doc comment,
+    // WO-044) to catch PHI embedded inside a longer free-text string
+    // (e.g. a LangChain error message like "rate limit exceeded for
+    // patient SSN 123-45-6789") that scrub()'s field-name/exact-whole-
+    // value matching alone would miss (WO-035).
+    const fullyScrubbedMetadata = this.phiScrubber.scrubEmbeddedText(fieldScrubbedMetadata, tenantSettings) as Record<string, unknown>;
     const textPassDetections: PhiDetection[] =
-      serializedFullyScrubbed !== serializedFieldScrubbed ? [{ fieldPath: "metadata (embedded free text)", reason: "value_shape" }] : [];
+      JSON.stringify(fullyScrubbedMetadata) !== JSON.stringify(fieldScrubbedMetadata) ? [{ fieldPath: "metadata (embedded free text)", reason: "value_shape" }] : [];
 
-    return { scrubbedMetadata: JSON.parse(serializedFullyScrubbed) as Record<string, unknown>, detections: [...fieldDetections, ...textPassDetections] };
+    return { scrubbedMetadata: fullyScrubbedMetadata, detections: [...fieldDetections, ...textPassDetections] };
   }
 }

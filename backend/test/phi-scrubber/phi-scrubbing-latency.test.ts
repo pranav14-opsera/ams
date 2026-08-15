@@ -37,9 +37,7 @@ test("WO-043: PHI scrubbing (primary + embedded-text + secondary validation) add
     const start = process.hrtime.bigint();
 
     const { result: fieldScrubbed } = scrubber.scrubWithDetections(metadata);
-    const serialized = JSON.stringify(fieldScrubbed);
-    const fullyScrubbedSerialized = scrubber.scrubText(serialized);
-    const fullyScrubbed = JSON.parse(fullyScrubbedSerialized) as Record<string, unknown>;
+    const fullyScrubbed = scrubber.scrubEmbeddedText(fieldScrubbed) as Record<string, unknown>;
     validator.hasResidualPhi(fullyScrubbed);
 
     const end = process.hrtime.bigint();

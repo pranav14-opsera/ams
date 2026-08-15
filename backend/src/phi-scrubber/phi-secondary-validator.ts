@@ -19,7 +19,13 @@ export class PhiSecondaryValidator {
     const rescrubbedFields = this.phiScrubber.scrub(scrubbedMetadata, tenantSettings);
     if (JSON.stringify(rescrubbedFields) !== JSON.stringify(scrubbedMetadata)) return true;
 
-    const serialized = JSON.stringify(scrubbedMetadata);
-    return this.phiScrubber.scrubText(serialized, tenantSettings) !== serialized;
+    // scrubEmbeddedText() (not a raw scrubText() over the whole
+    // JSON.stringify()'d document) — WO-044 found that applying the
+    // unanchored substring regex to an entire serialized document can
+    // match digits inside an unquoted JSON NUMBER (e.g. a millisecond
+    // timestamp), which would make this re-scrub always "change"
+    // something and falsely quarantine every event carrying one.
+    const rescrubbedText = this.phiScrubber.scrubEmbeddedText(scrubbedMetadata, tenantSettings);
+    return JSON.stringify(rescrubbedText) !== JSON.stringify(scrubbedMetadata);
   }
 }
