@@ -4,6 +4,7 @@ import { AlertDeliveryService } from "./alert-delivery.service";
 import { AlertEventRepository } from "./alert-event.repository";
 import { AlertThresholdRepository } from "./alert-threshold.repository";
 import { MetricSnapshotCacheService, type MetricSnapshot } from "./metric-snapshot-cache.service";
+import { AlertSuppressionService } from "./suppression/alert-suppression.service";
 import type { AlertEvent, AlertSeverity, AlertThresholdConfig } from "./alert-threshold.types";
 
 /** 5s health-aggregate bucket -> "per minute" rate, so token_consumption_rate thresholds (defined per-minute, per this WO's own AC) compare against a like-for-like unit. */
@@ -19,6 +20,8 @@ export class ThresholdEvaluatorService {
     private readonly snapshotCache: MetricSnapshotCacheService,
     private readonly healthRepository: HealthDashboardRepository,
     private readonly alertDeliveryService: AlertDeliveryService,
+    /** Optional — WO-062 wires this in production; existing call sites that don't pass it simply never suppress/tune (equivalent to "no snoozes, no auto-tuning ever configured"), not a breaking change to this constructor's existing 5-arg call sites. */
+    private readonly suppressionService?: AlertSuppressionService,
   ) {}
 
   /**
@@ -63,15 +66,21 @@ export class ThresholdEvaluatorService {
       const actualValue = snapshot[threshold.metricName];
       if (actualValue === undefined) continue;
 
-      const severity = this.classifySeverity(actualValue, threshold);
+      // AC: auto-tuning only ever widens the WARNING threshold, never critical — a pattern with sustained false-positive feedback becomes harder to trigger a WARNING for, but a genuine critical breach always still fires regardless of feedback history.
+      const warningMultiplier = this.suppressionService ? await this.suppressionService.getWarningMultiplier(undefined, tenantId, threshold.agentId, threshold.metricName) : 1;
+      const severity = this.classifySeverity(actualValue, threshold, warningMultiplier);
       if (!severity) continue;
+
+      // AC: manual snooze suppresses ANY severity (including critical) — an explicit user action, checked independently of auto-tuning.
+      const suppressed = this.suppressionService ? await this.suppressionService.isAlertSuppressed(undefined, tenantId, threshold.agentId, threshold.metricName, now) : false;
+      if (suppressed) continue;
 
       const withinCooldown = await this.isWithinCooldown(tenantId, threshold, now);
       if (withinCooldown) continue;
 
       const event = await this.eventRepository.create(undefined, tenantId, threshold.agentId, {
         metricName: threshold.metricName,
-        thresholdValue: severity === "critical" ? threshold.criticalThreshold : threshold.warningThreshold,
+        thresholdValue: severity === "critical" ? threshold.criticalThreshold : threshold.warningThreshold * warningMultiplier,
         actualValue,
         severity,
         breachTimestamp: now,
@@ -89,9 +98,10 @@ export class ThresholdEvaluatorService {
     return generatedEvents;
   }
 
-  private classifySeverity(actualValue: number, threshold: AlertThresholdConfig): AlertSeverity | null {
+  private classifySeverity(actualValue: number, threshold: AlertThresholdConfig, warningMultiplier: number): AlertSeverity | null {
+    // criticalThreshold is NEVER scaled by warningMultiplier — see the AC this evaluator enforces: critical alerts must never be auto-suppressed by false-positive feedback.
     if (actualValue > threshold.criticalThreshold) return "critical";
-    if (actualValue > threshold.warningThreshold) return "warning";
+    if (actualValue > threshold.warningThreshold * warningMultiplier) return "warning";
     return null;
   }
 
