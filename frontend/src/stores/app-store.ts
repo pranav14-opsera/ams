@@ -7,6 +7,8 @@ export interface AuthContextState {
   tenantId: string | null;
   roles: string[];
   permissions: string[];
+  /** WO-054: the JWT used to authenticate the WebSocket connection (useWebSocket's own auth message) — the same session token the REST API would use, not a separate credential. */
+  token: string | null;
 }
 
 export interface AppState {
@@ -25,6 +27,7 @@ const initialAuthState: AuthContextState = {
   tenantId: null,
   roles: [],
   permissions: [],
+  token: null,
 };
 
 // E2E-only seam (WO-051): Playwright has no real backend to authenticate
