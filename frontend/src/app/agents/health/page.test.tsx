@@ -7,6 +7,10 @@ import type { AgentHealthViewModel } from "@/types/dashboard";
 
 const agents = (fixtures.records as AgentHealthViewModel[]).slice(0, 6);
 
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn() }),
+}));
+
 const mockUseFleetHealthQuery = vi.fn();
 vi.mock("@/hooks/useFleetHealthQuery", () => ({
   useFleetHealthQuery: (...args: unknown[]) => mockUseFleetHealthQuery(...args),

@@ -1,0 +1,13 @@
+{
+  "description": "Sample agent lifecycle transition history (WO-057 AC) for local dev/CI, mirroring agent_state_transitions' real schema (agent-state-transitions.repository.ts).",
+  "transitions": [
+    { "agentId": "agent-1", "fromStatus": "connecting", "toStatus": "active", "reason": "initial activation", "triggeredBy": "user-a1", "occurredAt": "2026-07-17T09:00:00.000Z" },
+    { "agentId": "agent-1", "fromStatus": "active", "toStatus": "paused", "reason": "scheduled maintenance", "triggeredBy": "user-a1", "occurredAt": "2026-08-01T14:30:00.000Z" },
+    { "agentId": "agent-1", "fromStatus": "paused", "toStatus": "active", "reason": "maintenance complete", "triggeredBy": "user-a1", "occurredAt": "2026-08-01T15:00:00.000Z" },
+    { "agentId": "agent-2", "fromStatus": "connecting", "toStatus": "active", "reason": "initial activation", "triggeredBy": "user-a2", "occurredAt": "2026-07-20T10:00:00.000Z" },
+    { "agentId": "agent-3", "fromStatus": "connecting", "toStatus": "active", "reason": "initial activation", "triggeredBy": "user-a3", "occurredAt": "2026-07-22T11:00:00.000Z" },
+    { "agentId": "agent-3", "fromStatus": "active", "toStatus": "retired", "reason": "framework migration, superseded by agent-3b", "triggeredBy": "user-a3", "occurredAt": "2026-08-10T08:00:00.000Z" },
+    { "agentId": "agent-4", "fromStatus": "connecting", "toStatus": "active", "reason": "initial activation", "triggeredBy": "user-a4", "occurredAt": "2026-07-25T12:00:00.000Z" },
+    { "agentId": "agent-5", "fromStatus": "connecting", "toStatus": "active", "reason": "initial activation", "triggeredBy": "user-a5", "occurredAt": "2026-07-28T13:00:00.000Z" }
+  ]
+}

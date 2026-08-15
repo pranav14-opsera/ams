@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { AgentHealthCard } from "@/components/dashboard/agent-health-card";
 import { FleetHealthSummary } from "@/components/dashboard/fleet-health-summary";
@@ -17,6 +18,7 @@ import type { AgentHealthFilters, FleetHealthResult } from "@/types/dashboard";
  * socket never connects at all.
  */
 export default function AgentHealthDashboardPage() {
+  const router = useRouter();
   const [filters, setFilters] = useState<AgentHealthFilters>({});
   const restQuery = useFleetHealthQuery(filters);
   const { latest: liveSnapshot, connectionState, isStale } = useHealthWebSocket();
@@ -59,7 +61,7 @@ export default function AgentHealthDashboardPage() {
         ) : (
           sortedAgents.map((agent) => (
             <div key={agent.id} role="listitem">
-              <AgentHealthCard agent={agent} />
+              <AgentHealthCard agent={agent} onSelect={(agentId) => router.push(`/agents/health/detail?agentId=${agentId}`)} />
             </div>
           ))
         )}

@@ -4,13 +4,18 @@ import { PG_POOL } from "../../common/database/database.module";
 
 export type AgentMetricName = "latency_ms" | "error_rate" | "throughput_rps" | "token_consumption" | "tool_call_success";
 
-export type AggregateGranularity = "5s" | "15s" | "60s" | "5min";
+export type AggregateGranularity = "5s" | "15s" | "60s" | "5min" | "1hr" | "1day";
 
 const SCOPED_VIEW_BY_GRANULARITY: Record<AggregateGranularity, string> = {
   "5s": "agent_health_5s_agg_scoped",
   "15s": "agent_credits_15s_agg_scoped",
   "60s": "agent_analytics_60s_agg_scoped",
   "5min": "agent_metrics_5min_agg_scoped",
+  // WO-057: two coarser granularities (migration 044) so the health
+  // drill-down view's 24h/7d/30d ranges query a bucket size proportionate
+  // to the range, instead of returning thousands of 5-minute rows.
+  "1hr": "agent_metrics_1hr_agg_scoped",
+  "1day": "agent_metrics_1day_agg_scoped",
 };
 
 export interface AgentMetricsAggregateRow {

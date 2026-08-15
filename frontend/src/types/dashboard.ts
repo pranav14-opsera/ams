@@ -41,3 +41,60 @@ export interface AgentHealthFilters {
   framework?: AgentFramework;
   status?: AgentHealthStatus;
 }
+
+export const TIME_RANGES = ["1h", "6h", "24h", "7d", "30d"] as const;
+export type TimeRange = (typeof TIME_RANGES)[number];
+
+export interface HealthHistoryPoint {
+  bucket: string;
+  latencyP50Ms: number | null;
+  latencyP99Ms: number | null;
+  errorRateAvg: number | null;
+  tokenConsumptionTotal: number | null;
+  toolCallSuccessRateAvg: number | null;
+}
+
+export type DriftStatus = "stable" | "drifting_up" | "drifting_down" | "insufficient_data";
+
+export interface AgentHealthHistoryResult {
+  agentId: string;
+  range: TimeRange;
+  points: HealthHistoryPoint[];
+  qualityScore: number | null;
+  driftStatus: DriftStatus;
+}
+
+export const TRACE_STATUSES = ["running", "completed", "failed"] as const;
+export type TraceStatus = (typeof TRACE_STATUSES)[number];
+
+export interface TraceStep {
+  stepName: string;
+  toolName: string | null;
+  durationMs: number;
+  status: "success" | "error";
+  inputSummary: string;
+  outputSummary: string;
+}
+
+export interface AgentExecutionTrace {
+  id: string;
+  tenantId: string;
+  agentId: string;
+  status: TraceStatus;
+  startedAt: string;
+  durationMs: number | null;
+  steps: TraceStep[];
+}
+
+export interface AgentTracesResult {
+  rows: AgentExecutionTrace[];
+  total: number;
+}
+
+export interface LifecycleHistoryEntry {
+  fromStatus: string;
+  toStatus: string;
+  reason: string | null;
+  triggeredBy: string | null;
+  occurredAt: string;
+}
