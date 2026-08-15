@@ -7,7 +7,14 @@ import { defineConfig, devices } from "@playwright/test";
 // not just the dev server.
 export default defineConfig({
   testDir: "./tests/e2e",
-  fullyParallel: true,
+  // `serve` (the static file server backing webServer below) is not
+  // built for concurrent load — running multiple Playwright workers
+  // against it genuinely dropped connections (net::ERR_ABORTED) during
+  // this WO's own verification, not a real app bug. A single worker
+  // avoids it entirely; this suite is small enough that serializing it
+  // costs a few seconds, not minutes.
+  fullyParallel: false,
+  workers: 1,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   reporter: [["html", { outputFolder: "playwright-report", open: "never" }]],

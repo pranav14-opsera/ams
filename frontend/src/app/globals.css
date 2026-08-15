@@ -26,3 +26,23 @@ body {
   background-color: var(--color-background);
   color: var(--color-foreground);
 }
+
+/* WO-051: SidebarGroup's animated expand/collapse (Radix Collapsible sets
+   --radix-collapsible-content-height itself). */
+@keyframes collapsible-down {
+  from {
+    height: 0;
+  }
+  to {
+    height: var(--radix-collapsible-content-height);
+  }
+}
+
+@keyframes collapsible-up {
+  from {
+    height: var(--radix-collapsible-content-height);
+  }
+  to {
+    height: 0;
+  }
+}

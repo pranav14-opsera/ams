@@ -1,0 +1,9 @@
+[
+  "agent_management:agent:read",
+  "agent_management:agent:update",
+  "agent_management:agent:trigger",
+  "credit_management:consumption:view_team",
+  "audit_access:logs:view_team",
+  "governance:approval:review",
+  "reporting:team_alert:configure"
+]
