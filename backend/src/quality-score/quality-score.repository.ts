@@ -166,6 +166,16 @@ export class QualityScoreRepository {
     return result.rows.map(toHistoryDomain);
   }
 
+  /** WO-064: bounded on both ends — used to fetch exactly the calibration-window ticks that produced an agent's baseline (calibration_started_at..established_at), never any score computed after baseline establishment. */
+  async getScoreHistoryInRange(client: Pool | PoolClient | undefined, tenantId: string, agentId: string, sinceIso: string, untilIso: string): Promise<QualityScoreHistoryEntry[]> {
+    const executor = client ?? this.pool;
+    const result = await executor.query<HistoryRow>(
+      "SELECT * FROM quality_score_history WHERE tenant_id = $1 AND agent_id = $2 AND computed_at >= $3 AND computed_at <= $4 ORDER BY computed_at ASC",
+      [tenantId, agentId, sinceIso, untilIso],
+    );
+    return result.rows.map(toHistoryDomain);
+  }
+
   async getMostRecentScore(client: Pool | PoolClient | undefined, tenantId: string, agentId: string): Promise<QualityScoreHistoryEntry | null> {
     const executor = client ?? this.pool;
     const result = await executor.query<HistoryRow>("SELECT * FROM quality_score_history WHERE tenant_id = $1 AND agent_id = $2 ORDER BY computed_at DESC LIMIT 1", [tenantId, agentId]);
@@ -214,6 +224,16 @@ export class QualityScoreRepository {
     return toBaselineDomain(result.rows[0]);
   }
 
+  /** WO-064: POST .../drift/reset-baseline — starts an entirely fresh 7-day calibration period (clears baseline_score/established_at, restamps calibration_started_at to now). */
+  async resetBaseline(client: Pool | PoolClient | undefined, tenantId: string, agentId: string): Promise<QualityScoreBaseline> {
+    const executor = client ?? this.pool;
+    const result = await executor.query<BaselineRow>(
+      "UPDATE quality_score_baselines SET baseline_score = NULL, established_at = NULL, calibration_started_at = now(), updated_at = now() WHERE tenant_id = $1 AND agent_id = $2 RETURNING *",
+      [tenantId, agentId],
+    );
+    return toBaselineDomain(result.rows[0]);
+  }
+
   // --- Fleet iteration for the scheduler ------------------------------------
 
   async findDistinctTenantIdsWithActiveAgents(client?: Pool | PoolClient): Promise<string[]> {
@@ -226,5 +246,18 @@ export class QualityScoreRepository {
     const executor = client ?? this.pool;
     const result = await executor.query<{ id: string }>("SELECT id FROM agents WHERE tenant_id = $1 AND lifecycle_status IN ('active', 'connecting')", [tenantId]);
     return result.rows.map((row) => row.id);
+  }
+
+  /** WO-064: drift detection only ever activates for agents with an ESTABLISHED baseline (AC) — a much smaller, separate fleet from "every active agent" above. */
+  async findDistinctTenantIdsWithEstablishedBaselines(client?: Pool | PoolClient): Promise<string[]> {
+    const executor = client ?? this.pool;
+    const result = await executor.query<{ tenant_id: string }>("SELECT DISTINCT tenant_id FROM quality_score_baselines WHERE established_at IS NOT NULL");
+    return result.rows.map((row) => row.tenant_id);
+  }
+
+  async findAgentIdsWithEstablishedBaselines(client: Pool | PoolClient | undefined, tenantId: string): Promise<string[]> {
+    const executor = client ?? this.pool;
+    const result = await executor.query<{ agent_id: string }>("SELECT agent_id FROM quality_score_baselines WHERE tenant_id = $1 AND established_at IS NOT NULL", [tenantId]);
+    return result.rows.map((row) => row.agent_id);
   }
 }

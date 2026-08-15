@@ -17,15 +17,15 @@ export interface AlertThresholdConfig {
   updatedAt: Date;
 }
 
-export const DETECTION_METHODS = ["threshold", "anomaly"] as const;
+export const DETECTION_METHODS = ["threshold", "anomaly", "drift"] as const;
 export type DetectionMethod = (typeof DETECTION_METHODS)[number];
 
-/** AC: every anomaly alert event carries statistical evidence — expected value, actual value, deviation magnitude, and which algorithm produced it. Absent (null) on threshold-triggered events. */
+/** AC: every anomaly/drift alert event carries statistical evidence — expected value, actual value, deviation magnitude, and which algorithm produced it. Absent (null) on threshold-triggered events. For a "ks_test" (WO-064) event, deviationSigma holds the KS statistic D — not a true sigma, but the closest existing field to summarize "how far apart" the two distributions are; the FULL evidence (p-value, affected components) lives in the dedicated drift_events table, not squeezed into this shared shape. */
 export interface StatisticalEvidence {
   expectedValue: number;
   actualValue: number;
   deviationSigma: number;
-  algorithmUsed: "ewma" | "zscore";
+  algorithmUsed: "ewma" | "zscore" | "ks_test";
 }
 
 export interface AlertEvent {

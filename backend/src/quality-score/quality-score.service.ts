@@ -40,6 +40,11 @@ export class QualityScoreService {
     await this.repository.ensureBaselineStarted(client, tenantId, agentId);
   }
 
+  /** WO-064 AC: "triggers new calibration period" — starts an entirely fresh 7-day baseline window, e.g. after a known model update or config change makes the OLD baseline no longer a meaningful comparison point. */
+  async resetCalibration(client: Pool | PoolClient | undefined, tenantId: string, agentId: string): Promise<void> {
+    await this.repository.resetBaseline(client, tenantId, agentId);
+  }
+
   /**
    * AC: after the 7-day calibration period, the baseline is the MEDIAN of
    * all 5-minute scores accumulated so far — a no-op if already

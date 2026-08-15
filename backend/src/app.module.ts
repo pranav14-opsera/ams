@@ -17,6 +17,7 @@ import { AlertsModule } from "./alerts/alerts.module";
 import { AnomalyDetectionModule } from "./anomaly-detection/anomaly-detection.module";
 import { AuditModule } from "./audit/audit.module";
 import { DashboardModule } from "./dashboard/dashboard.module";
+import { DriftDetectionModule } from "./drift-detection/drift-detection.module";
 import { GatewayModule } from "./gateway/gateway.module";
 import { PhiScrubberModule } from "./phi-scrubber/phi-scrubber.module";
 import { QualityScoreModule } from "./quality-score/quality-score.module";
@@ -75,6 +76,7 @@ const ADAPTER_TELEMETRY_ROUTES = ["api/v1/adapters/*/telemetry"];
     AlertsModule,
     AnomalyDetectionModule,
     QualityScoreModule,
+    DriftDetectionModule,
     AdaptersModule,
     LangChainModule,
     RestModule,
