@@ -6,6 +6,7 @@ import { NAVIGATION_CONFIG } from "@/config/navigation";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useSidebarState } from "@/hooks/useSidebarState";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { MobileDrawer } from "./mobile-drawer";
 import { SidebarGroup } from "./sidebar-group";
 
@@ -82,9 +83,12 @@ export function Sidebar() {
     return (
       <>
         {skipLink}
-        <Button variant="ghost" size="sm" aria-label="Open navigation" onClick={openMobileDrawer} className="m-2">
-          <Menu aria-hidden="true" className="size-5" />
-        </Button>
+        <div className="m-2 flex items-center gap-1">
+          <Button variant="ghost" size="sm" aria-label="Open navigation" onClick={openMobileDrawer}>
+            <Menu aria-hidden="true" className="size-5" />
+          </Button>
+          <ThemeToggle />
+        </div>
         <MobileDrawer open={mobileDrawerOpen} onOpenChange={(open) => (open ? openMobileDrawer() : closeMobileDrawer())}>
           <NavigationTree collapsed={false} expandedGroups={expandedGroups} onToggleGroup={toggleGroup} onNavigate={closeMobileDrawer} />
         </MobileDrawer>
@@ -96,15 +100,18 @@ export function Sidebar() {
     <>
       {skipLink}
       <aside aria-label="Sidebar" className={collapsed ? "border-border w-16 shrink-0 border-r p-2" : "border-border w-64 shrink-0 border-r p-4"}>
-        <Button
-          variant="ghost"
-          size="sm"
-          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          onClick={() => setCollapsed(!collapsed)}
-          className="mb-2 w-full justify-start"
-        >
-          {collapsed ? <PanelLeftOpen aria-hidden="true" className="size-4" /> : <PanelLeftClose aria-hidden="true" className="size-4" />}
-        </Button>
+        <div className={collapsed ? "mb-2 flex flex-col gap-1" : "mb-2 flex items-center gap-1"}>
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            onClick={() => setCollapsed(!collapsed)}
+            className={collapsed ? "w-full justify-start" : "flex-1 justify-start"}
+          >
+            {collapsed ? <PanelLeftOpen aria-hidden="true" className="size-4" /> : <PanelLeftClose aria-hidden="true" className="size-4" />}
+          </Button>
+          <ThemeToggle />
+        </div>
         <NavigationTree collapsed={collapsed} expandedGroups={expandedGroups} onToggleGroup={toggleGroup} />
       </aside>
     </>
