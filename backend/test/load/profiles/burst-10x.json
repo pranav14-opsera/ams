@@ -1,0 +1,9 @@
+{
+  "name": "burst-10x",
+  "eventsPerSecond": 120,
+  "durationSeconds": 300,
+  "numTenants": 10,
+  "numAgentsPerTenant": 5,
+  "frameworkDistribution": { "langchain": 0.5, "genericRest": 0.5 },
+  "errorRate": 0.02
+}

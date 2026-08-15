@@ -1,0 +1,9 @@
+{
+  "name": "1x-sustained",
+  "eventsPerSecond": 12,
+  "durationSeconds": 1800,
+  "numTenants": 5,
+  "numAgentsPerTenant": 4,
+  "frameworkDistribution": { "langchain": 0.5, "genericRest": 0.5 },
+  "errorRate": 0.02
+}

@@ -62,6 +62,37 @@ export class PhiScrubberService {
     return result;
   }
 
+  /**
+   * WO-044 bug fix: scrubText() is a substring-level regex pass, safe
+   * ONLY when applied to an actual text string. The pipeline previously
+   * ran it over `JSON.stringify()` of the whole metadata object, which
+   * works fine for masking PHI embedded in a STRING field's free text but
+   * can also match digits inside an unquoted JSON NUMBER (e.g. a
+   * millisecond timestamp) — replacing part of a number literal with the
+   * literal text "[MASKED]" produces invalid JSON, discovered via a load
+   * test whose synthetic events carried a `generatedAtMs` timestamp
+   * field. This walks the structure and applies scrubText() only to
+   * STRING leaves, leaving numbers/booleans/null untouched — matching
+   * exactly what scrub()'s own structural walk already does for
+   * field-name/value-shape masking.
+   */
+  scrubEmbeddedText(value: unknown, tenantSettings?: Record<string, unknown> | null, patterns: PhiPatternSet = PLATFORM_DEFAULT_PHI_PATTERNS): unknown {
+    if (Array.isArray(value)) {
+      return value.map((item) => this.scrubEmbeddedText(item, tenantSettings, patterns));
+    }
+    if (value !== null && typeof value === "object" && !(value instanceof Date)) {
+      const result: Record<string, unknown> = {};
+      for (const [key, nested] of Object.entries(value as Record<string, unknown>)) {
+        result[key] = this.scrubEmbeddedText(nested, tenantSettings, patterns);
+      }
+      return result;
+    }
+    if (typeof value === "string") {
+      return this.scrubText(value, tenantSettings, patterns);
+    }
+    return value;
+  }
+
   private walk(value: unknown, fieldName: string | undefined, patterns: PhiPatternSet, depth: number, path?: string, detections?: PhiDetection[]): unknown {
     if (depth > MAX_DEPTH) return value;
 

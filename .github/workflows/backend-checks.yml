@@ -103,3 +103,25 @@ jobs:
           # production actually does — see that file for why this matters.
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
         run: npm test
+
+      # WO-044: a reduced-scale (20s, not the AC's literal 5 minutes —
+      # see backend/test/load/LOAD_TEST_RESULTS.md) run of the 1x
+      # throughput profile against this job's own real Postgres service
+      # container, failing the build if any measurable segment's P99
+      # exceeds its budget by more than 20%. No Kafka/WebSocket service is
+      # available in this job either, so only the segments genuinely
+      # reachable without a broker are asserted here (see the script's own
+      # LATENCY_BUDGETS_P99_MS for exactly which).
+      - name: Load test regression (reduced scale)
+        working-directory: backend
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+        run: npm run test:load-regression
+
+      - name: Upload load regression report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: load-regression-report
+          path: backend/load-regression-report.json
+          if-no-files-found: ignore

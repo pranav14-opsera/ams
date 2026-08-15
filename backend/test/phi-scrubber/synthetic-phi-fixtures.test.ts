@@ -15,10 +15,10 @@ test("every synthetic PHI fixture event is fully masked by the full two-pass scr
     assert.ok(detections.length > 0, `fixture "${event.name}" must produce at least one PHI detection`);
 
     // Some fixtures embed PHI mid-sentence (e.g. "SSN on file: 000-00-0000"),
-    // which only the SECOND pass (substring-level scrubText, over the
-    // already field-scrubbed output) catches — exactly the real pipeline's
-    // two-pass design (WO-035).
-    const fullyScrubbed = scrubber.scrubText(JSON.stringify(result));
+    // which only the SECOND pass (substring-level scrubText, applied per
+    // string leaf via scrubEmbeddedText — WO-044) catches — exactly the
+    // real pipeline's two-pass design (WO-035).
+    const fullyScrubbed = JSON.stringify(scrubber.scrubEmbeddedText(result));
 
     assert.ok(!fullyScrubbed.includes("000-00-0000"), `fixture "${event.name}": SSN must not survive scrubbing`);
     assert.ok(!fullyScrubbed.includes("TEST-MRN-12345"), `fixture "${event.name}": MRN must not survive scrubbing`);
@@ -32,8 +32,7 @@ test("every synthetic PHI fixture event passes the secondary validation gate (no
   const validator = new PhiSecondaryValidator(scrubber);
   for (const event of fixtures.events) {
     const { result: fieldScrubbed } = scrubber.scrubWithDetections(event.metadata);
-    const serialized = JSON.stringify(fieldScrubbed);
-    const fullyScrubbed = JSON.parse(scrubber.scrubText(serialized)) as Record<string, unknown>;
+    const fullyScrubbed = scrubber.scrubEmbeddedText(fieldScrubbed) as Record<string, unknown>;
 
     assert.equal(validator.hasResidualPhi(fullyScrubbed), false, `fixture "${event.name}" must have zero residual PHI after the full pipeline scrub`);
   }

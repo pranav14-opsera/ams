@@ -63,3 +63,7 @@ axe-report.json
 /frontend/test-results/
 /frontend/playwright-report/
 /frontend/.playwright/
+
+# WO-044 load test regression report (generated per-run, archived as a
+# CI build artifact rather than committed)
+/backend/load-regression-report.json

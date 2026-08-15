@@ -145,6 +145,35 @@ test("WO-043: scrubWithDetections returns zero detections for a payload with no 
   assert.equal(detections.length, 0);
 });
 
+test("WO-044: scrubEmbeddedText leaves numeric/boolean/null fields completely untouched, even when their digits would match a value pattern as a raw substring", () => {
+  const scrubber = new PhiScrubberService();
+  // A real bug found via load testing: applying scrubText's unanchored
+  // substring regex to the ENTIRE JSON.stringify() of an object can match
+  // digits inside an unquoted JSON number (e.g. a millisecond timestamp
+  // like 1755230440560, which contains a 6-10 digit run the MRN pattern
+  // matches), corrupting the JSON. scrubEmbeddedText must only ever touch
+  // STRING leaves.
+  const input = { generatedAtMs: 1755230440560, count: 42, active: true, note: null };
+  const result = scrubber.scrubEmbeddedText(input) as typeof input;
+
+  assert.equal(result.generatedAtMs, 1755230440560);
+  assert.equal(result.count, 42);
+  assert.equal(result.active, true);
+  assert.equal(result.note, null);
+  // Sanity: the result must still be valid, serializable JSON.
+  assert.doesNotThrow(() => JSON.parse(JSON.stringify(result)));
+});
+
+test("WO-044: scrubEmbeddedText still masks PHI embedded in a free-text STRING field, alongside untouched numeric fields", () => {
+  const scrubber = new PhiScrubberService();
+  const input = { generatedAtMs: 1755230440560, note: "call back regarding SSN 123-45-6789" };
+  const result = scrubber.scrubEmbeddedText(input) as typeof input;
+
+  assert.equal(result.generatedAtMs, 1755230440560);
+  assert.ok(!result.note.includes("123-45-6789"));
+  assert.ok(result.note.includes("[MASKED]"));
+});
+
 test("deeply nested structures beyond normal depth still terminate (no infinite recursion)", () => {
   const scrubber = new PhiScrubberService();
   let deep: any = { patient_id: "12345" };

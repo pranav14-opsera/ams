@@ -95,11 +95,21 @@ export abstract class BaseRealtimeGateway implements OnGatewayConnection, OnGate
   private deliver(connectionId: string, tenantId: string, userRoles: string[], message: RealtimeMessage): void {
     if (!isAuthorizedForMessage(message.requiredRoles, userRoles)) return;
 
+    // WO-044: websocket_message_latency_seconds existed (ws-metrics.service.ts)
+    // but was never actually fed by the real delivery path — this is the
+    // in-process portion of that latency (message arrival at this
+    // connection's handler -> batch flush actually sent to the client),
+    // i.e. the cost the 100ms batching window itself adds. It does not
+    // include the Redis publish->subscribe network hop, which happens
+    // before `message` ever reaches this method.
+    const deliverStartedAtMs = Date.now();
+
     this.batcher.enqueue(connectionId, message.payload, (batch) => {
       const client = this.clients.get(connectionId);
       if (!client || client.readyState !== client.OPEN) return;
       client.send(JSON.stringify({ channel: this.channel, batch }));
       this.metrics.messageSent(tenantId, this.channel, batch.length);
+      this.metrics.recordLatencySeconds((Date.now() - deliverStartedAtMs) / 1000);
     });
   }
 
