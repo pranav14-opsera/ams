@@ -3,6 +3,7 @@ import { MetricsAggregatorRepository } from "../adapters/metrics/metrics-aggrega
 import { AgentStateTransitionsRepository } from "../agents/agent-state-transitions.repository";
 import { AgentsRepository } from "../agents/agents.repository";
 import { AnomalyDetectionModule } from "../anomaly-detection/anomaly-detection.module";
+import { DriftDetectionModule } from "../drift-detection/drift-detection.module";
 import { PhiScrubberModule } from "../phi-scrubber/phi-scrubber.module";
 import { QualityScoreModule } from "../quality-score/quality-score.module";
 import { RbacModule } from "../rbac/rbac.module";
@@ -22,7 +23,7 @@ import { HealthMetricsPublisherService } from "./health-metrics-publisher.servic
 // every module that needs it re-provides its own PostgresAuditService
 // binding (see subscription.module.ts, audit-retention.module.ts, etc.).
 @Module({
-  imports: [RbacModule, PhiScrubberModule, WebsocketGatewayModule, TraceModule, AnomalyDetectionModule, QualityScoreModule],
+  imports: [RbacModule, PhiScrubberModule, WebsocketGatewayModule, TraceModule, AnomalyDetectionModule, QualityScoreModule, DriftDetectionModule],
   controllers: [DashboardController, AgentHealthDetailController],
   providers: [
     HealthDashboardRepository,

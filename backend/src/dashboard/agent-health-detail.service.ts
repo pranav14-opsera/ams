@@ -8,6 +8,9 @@ import { PlatformRoleName } from "../rbac/rbac.constants";
 import { TeamMembershipRepository } from "../rbac/team-membership.repository";
 import { QualityScoreService } from "../quality-score/quality-score.service";
 import type { AgentQualityScoreSummary } from "../quality-score/quality-score.types";
+import { DriftEventRepository } from "../drift-detection/drift-event.repository";
+import { DriftStateRepository } from "../drift-detection/drift-state.repository";
+import { CONSECUTIVE_WINDOWS_REQUIRED, type DriftStatus as RealDriftStatus } from "../drift-detection/drift-detection.types";
 import type { RequestActorContext } from "./dashboard.service";
 import { granularityForRange, sinceIsoForRange, type TimeRange } from "./health-history.util";
 import { computeDriftStatus, computeQualityScore, type DriftStatus } from "./quality-score.util";
@@ -33,6 +36,14 @@ export interface AgentHealthHistoryResult {
   driftStatus: DriftStatus;
   /** WO-063's real, weighted-composite quality score engine — undefined when the QualityScoreService isn't wired (e.g. test rigs that don't pass one), not fabricated as "no data". */
   realQualityScore?: AgentQualityScoreSummary;
+  /** WO-064's real KS-test-based drift detection against the WO-063 baseline — undefined when not wired, same convention as realQualityScore above. */
+  realDrift?: {
+    status: RealDriftStatus;
+    consecutiveWindowCount: number;
+    lastKsStatistic: number | null;
+    lastPValue: number | null;
+    trend: Array<{ detectedAt: string; ksStatistic: number; pValue: number; degradationMagnitude: number }>;
+  };
 }
 
 export interface LifecycleHistoryEntry {
@@ -65,6 +76,9 @@ export class AgentHealthDetailService {
     private readonly teamMembershipRepository: TeamMembershipRepository,
     /** Optional — WO-063 wires this in production; existing call sites that don't pass it simply never see realQualityScore on the response, not a breaking change to this constructor's existing 5-arg call sites. */
     private readonly qualityScoreService?: QualityScoreService,
+    /** Optional — WO-064 wires these two in production; existing call sites that don't pass them simply never see realDrift on the response. */
+    private readonly driftEventRepository?: DriftEventRepository,
+    private readonly driftStateRepository?: DriftStateRepository,
   ) {}
 
   private async assertAgentAccessible(client: Pool | PoolClient | undefined, ctx: RequestActorContext, agentId: string) {
@@ -101,6 +115,7 @@ export class AgentHealthDetailService {
 
     const latest = rows.at(-1) ?? null;
     const realQualityScore = await this.getRealQualityScore(client, ctx.tenantId, agentId);
+    const realDrift = await this.getRealDrift(client, ctx.tenantId, agentId);
     return {
       agentId,
       range,
@@ -108,7 +123,27 @@ export class AgentHealthDetailService {
       qualityScore: latest ? computeQualityScore(latest.toolCallSuccessRateAvg, latest.errorRateAvg) : null,
       driftStatus: this.computeDrift(rows),
       ...(realQualityScore ? { realQualityScore } : {}),
+      ...(realDrift ? { realDrift } : {}),
     };
+  }
+
+  /** No-ops (returns undefined) if either repository wasn't provided or the lookup fails — same never-fail-the-whole-response posture as getRealQualityScore. */
+  private async getRealDrift(client: Pool | PoolClient | undefined, tenantId: string, agentId: string): Promise<AgentHealthHistoryResult["realDrift"] | undefined> {
+    if (!this.driftEventRepository || !this.driftStateRepository) return undefined;
+    try {
+      const sinceIso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      const [state, history] = await Promise.all([this.driftStateRepository.find(client, tenantId, agentId), this.driftEventRepository.findHistory(client, tenantId, agentId, sinceIso)]);
+      const status: RealDriftStatus = (state?.consecutiveDriftCount ?? 0) >= CONSECUTIVE_WINDOWS_REQUIRED ? "significant_drift" : (state?.consecutiveDriftCount ?? 0) > 0 ? "drifting" : "no_drift";
+      return {
+        status,
+        consecutiveWindowCount: state?.consecutiveDriftCount ?? 0,
+        lastKsStatistic: state?.lastKsStatistic ?? null,
+        lastPValue: state?.lastPValue ?? null,
+        trend: history.map((h) => ({ detectedAt: h.detectedAt.toISOString(), ksStatistic: h.ksStatistic, pValue: h.pValue, degradationMagnitude: h.degradationMagnitude })),
+      };
+    } catch {
+      return undefined;
+    }
   }
 
   /** No-ops (returns undefined) if qualityScoreService wasn't provided or the lookup fails — a nice-to-have addition to this response, never worth failing the whole health-history call over. */
