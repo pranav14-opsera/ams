@@ -3,6 +3,7 @@ import { AuthModule } from "../auth/auth.module";
 import { AlertsGateway } from "./gateways/alerts.gateway";
 import { ApprovalsGateway } from "./gateways/approvals.gateway";
 import { DashboardGateway } from "./gateways/dashboard.gateway";
+import { HealthGateway } from "./gateways/health.gateway";
 import { ConnectionRegistryService } from "./connection-registry.service";
 import { MessageBatcherService } from "./message-batcher.service";
 import { RedisPubSubService } from "./redis-pubsub.service";
@@ -14,6 +15,7 @@ import { WsMetricsService } from "./ws-metrics.service";
   imports: [AuthModule], // JWT_VERIFIER (WsAuthService's dependency) is provided there
   providers: [
     DashboardGateway,
+    HealthGateway,
     AlertsGateway,
     ApprovalsGateway,
     ConnectionRegistryService,
