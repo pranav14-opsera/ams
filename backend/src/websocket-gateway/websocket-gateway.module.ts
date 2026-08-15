@@ -23,6 +23,9 @@ import { WsMetricsService } from "./ws-metrics.service";
     WsConnectionLimitConfigService,
     WsMetricsService,
   ],
-  exports: [WsMetricsService],
+  // RedisPubSubService exported so other modules (e.g. AgentsModule's
+  // lifecycle transition events) can reuse this one publisher/subscriber
+  // connection pair instead of each standing up its own.
+  exports: [WsMetricsService, RedisPubSubService],
 })
 export class WebsocketGatewayModule {}

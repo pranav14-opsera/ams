@@ -8,6 +8,7 @@ export interface AgentResource {
   framework: string;
   lifecycleStatus: string;
   metadata: Record<string, unknown>;
+  version: number;
   registeredAt: string;
   updatedAt: string;
 }
@@ -29,6 +30,7 @@ export function toAgentResource(row: AgentRow): AgentResource {
     framework: row.framework,
     lifecycleStatus: row.lifecycle_status,
     metadata: row.metadata,
+    version: row.version,
     registeredAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
   };

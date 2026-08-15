@@ -4,12 +4,17 @@ import { PermissionName } from "../rbac/rbac.constants";
 import { RequirePermission } from "../rbac/require-permission.decorator";
 import { AgentsService } from "./agents.service";
 import { CreateAgentDto } from "./dto/create-agent.dto";
+import { LifecycleTransitionDto } from "./dto/lifecycle-transition.dto";
 import { ListAgentsQueryDto } from "./dto/list-agents-query.dto";
 import { UpdateAgentDto } from "./dto/update-agent.dto";
+import { LifecycleService } from "./lifecycle.service";
 
 @Controller("api/v1/agents")
 export class AgentsController {
-  constructor(private readonly agentsService: AgentsService) {}
+  constructor(
+    private readonly agentsService: AgentsService,
+    private readonly lifecycleService: LifecycleService,
+  ) {}
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
@@ -40,5 +45,12 @@ export class AgentsController {
   @RequirePermission(PermissionName.AGENT_DELETE)
   async remove(@Param("id") id: string, @Req() req: Request) {
     return this.agentsService.remove(req.tenantDbClient, req.tenantId!, req.actorId ?? null, id);
+  }
+
+  @Patch(":id/lifecycle")
+  @RequirePermission(PermissionName.AGENT_LIFECYCLE_CONTROL)
+  async transitionLifecycle(@Param("id") id: string, @Body() dto: LifecycleTransitionDto, @Req() req: Request) {
+    const result = await this.lifecycleService.transition(req.tenantDbClient, req.tenantId!, req.actorId ?? null, id, dto.targetStatus, dto.justification);
+    return { ...result.agent, warning: result.warning };
   }
 }

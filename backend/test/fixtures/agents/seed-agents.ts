@@ -36,8 +36,27 @@ export async function seedAgents(pool: Pool, service: AgentsService, tenantAId: 
       teamId: teamIds[i % teamIds.length],
       connectionConfig: { apiKey: `fixture-key-${i}` },
     });
-    if (i % 3 === 1) await pool.query("UPDATE agents SET lifecycle_status = 'active' WHERE id = $1", [created.id]);
-    if (i % 3 === 2) await pool.query("UPDATE agents SET lifecycle_status = 'paused' WHERE id = $1", [created.id]);
+    // Every status change is also backed by a real agent_state_transitions
+    // row (WO-032's own fixture requirement: "pre-populated state
+    // transition history records"), not just a bare column update.
+    if (i % 3 === 1) {
+      await pool.query("UPDATE agents SET lifecycle_status = 'active', version = version + 1 WHERE id = $1", [created.id]);
+      await pool.query(
+        "INSERT INTO agent_state_transitions (tenant_id, agent_id, from_status, to_status, reason, triggered_by) VALUES ($1, $2, 'connecting', 'active', 'fixture: initial activation', NULL)",
+        [tenantAId, created.id],
+      );
+    }
+    if (i % 3 === 2) {
+      await pool.query("UPDATE agents SET lifecycle_status = 'paused', version = version + 2 WHERE id = $1", [created.id]);
+      await pool.query(
+        "INSERT INTO agent_state_transitions (tenant_id, agent_id, from_status, to_status, reason, triggered_by) VALUES ($1, $2, 'connecting', 'active', 'fixture: initial activation', NULL)",
+        [tenantAId, created.id],
+      );
+      await pool.query(
+        "INSERT INTO agent_state_transitions (tenant_id, agent_id, from_status, to_status, reason, triggered_by) VALUES ($1, $2, 'active', 'paused', 'fixture: paused for maintenance', NULL)",
+        [tenantAId, created.id],
+      );
+    }
   }
 
   // 3 agents for tenant B, proving cross-tenant isolation has real data to isolate.
