@@ -35,6 +35,27 @@ rules:
           metavariable: $QUERY
           patterns:
             - pattern-not-regex: ^"(BEGIN|COMMIT|ROLLBACK)"$
+      # WO-048: set_config('app.current_tenant', ...) IS the tenant-scoping
+      # mechanism itself (RLS session plumbing), not a query against a
+      # tenant-scoped table — it always takes tenantId as its own $1
+      # parameter, so flagging it as "missing a tenant filter" is a false
+      # positive, the same class as the BEGIN/COMMIT/ROLLBACK exclusion
+      # above. Every set_config-excluded call site here already appears
+      # inside a runtime-verified BEGIN/set_config/COMMIT block (see
+      # AUDIT_RECONCILIATION.md).
+      - metavariable-pattern:
+          metavariable: $QUERY
+          patterns:
+            - pattern-not-regex: set_config
+      # WO-048: verify_audit_event_hash(p_event_id) (migration 042) looks
+      # up one row by primary key from WITHIN a transaction that has
+      # already called set_config('app.current_tenant', ...) — RLS scopes
+      # the lookup, and there is no tenant_id column on this function-call
+      # form of query to filter by explicitly.
+      - metavariable-pattern:
+          metavariable: $QUERY
+          patterns:
+            - pattern-not-regex: verify_audit_event_hash
     paths:
       exclude:
         # Migration runner: DDL + schema_migrations bookkeeping, not
