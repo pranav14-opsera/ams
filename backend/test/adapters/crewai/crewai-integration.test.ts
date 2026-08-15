@@ -19,7 +19,10 @@ import { AgentsService } from "../../../src/agents/agents.service";
 import { ClassificationRuleEngine } from "../../../src/classification/classification-rule-engine";
 import { DataClassificationTagger } from "../../../src/classification/data-classification-tagger";
 import { EncryptionService } from "../../../src/encryption/encryption.service";
+import { PhiAuditEmitter } from "../../../src/phi-scrubber/phi-audit-emitter";
+import { PhiQuarantineRepository } from "../../../src/phi-scrubber/phi-quarantine.repository";
 import { PhiScrubberService } from "../../../src/phi-scrubber/phi-scrubber.service";
+import { PhiSecondaryValidator } from "../../../src/phi-scrubber/phi-secondary-validator";
 import { InMemoryKmsService } from "../../../src/tenants/ports/in-memory/in-memory-kms.service";
 import { PostgresAuditService } from "../../../src/tenants/ports/postgres/postgres-audit.service";
 import { PostgresRbacService } from "../../../src/tenants/ports/postgres/postgres-rbac.service";
@@ -40,6 +43,7 @@ async function cleanupTenant(pool: Pool, slug: string): Promise<void> {
   if (tenant.rows.length === 0) return;
   const tenantId = tenant.rows[0].id;
   await pool.query("DELETE FROM telemetry_dead_letter_events WHERE tenant_id = $1", [tenantId]);
+  await pool.query("DELETE FROM phi_quarantine_events WHERE tenant_id = $1", [tenantId]);
   await pool.query("DELETE FROM audit_events WHERE tenant_id = $1", [tenantId]);
   await pool.query("DELETE FROM agents WHERE tenant_id = $1", [tenantId]);
   await pool.query("DELETE FROM rbac_policies WHERE tenant_id = $1", [tenantId]);
@@ -59,20 +63,24 @@ async function buildRig(pool: Pool) {
   const agentsService = new AgentsService(pool, agentsRepository, encryptionService, audit, buildAdapterHealthService(pool));
   const hmacMiddleware = new HmacValidationMiddleware(agentsRepository, encryptionService);
 
+  const phiScrubber = new PhiScrubberService();
   const pipeline = new TelemetryPipelineService(
     pool,
     new TelemetrySchemaValidatorService(),
     new TenantRepository(),
     new DataClassificationTagger(new ClassificationRuleEngine()),
-    new PhiScrubberService(),
+    phiScrubber,
     new KafkaTelemetryProducerService(),
     new TelemetryDeadLetterRepository(pool),
     new MetricsAggregatorService(new MetricsAggregatorRepository(pool)),
+    new PhiSecondaryValidator(phiScrubber),
+    new PhiAuditEmitter(audit),
+    new PhiQuarantineRepository(pool),
   );
 
   const registry = new AdapterRegistryService();
   registry.register("crewai", new CrewAiAdapter(new CrewAiConnectionValidator()));
-  const controller = new AdaptersController(registry, pipeline);
+  const controller = new AdaptersController(registry, pipeline, pool);
 
   return { saga, agentsService, hmacMiddleware, controller };
 }

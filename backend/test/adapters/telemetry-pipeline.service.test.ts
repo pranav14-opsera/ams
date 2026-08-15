@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { ClassificationRuleEngine } from "../../src/classification/classification-rule-engine";
 import { DataClassificationTagger } from "../../src/classification/data-classification-tagger";
 import { PhiScrubberService } from "../../src/phi-scrubber/phi-scrubber.service";
+import { PhiSecondaryValidator } from "../../src/phi-scrubber/phi-secondary-validator";
 import { TelemetryPipelineService } from "../../src/adapters/pipeline/telemetry-pipeline.service";
 import { TelemetrySchemaValidatorService } from "../../src/adapters/telemetry-schema-validator.service";
 import type { CanonicalTelemetryEvent } from "../../src/adapters/schemas/canonical-telemetry";
@@ -53,12 +54,37 @@ function fakeMetricsAggregator() {
   return { recorded, recordCanonicalEvent: async (_client: unknown, event: CanonicalTelemetryEvent) => { recorded.push(event); } } as any;
 }
 
-function buildPipeline(opts: { publisher?: "succeed" | "fail"; tenantSettings?: Record<string, unknown> | null } = {}) {
+function fakeAuditEmitter() {
+  const calls: Array<{ tenantId: string; agentId: string; eventId: string; detections: unknown[] }> = [];
+  return {
+    calls,
+    recordDetections: async (_client: unknown, tenantId: string, agentId: string, eventId: string, _tier: unknown, detections: unknown[]) => {
+      calls.push({ tenantId, agentId, eventId, detections });
+    },
+  } as any;
+}
+
+function fakeQuarantineRepository() {
+  const records: Array<{ event: CanonicalTelemetryEvent; reason: string }> = [];
+  return { records, record: async (_client: unknown, event: CanonicalTelemetryEvent, reason: string) => { records.push({ event, reason }); } } as any;
+}
+
+function buildPipeline(
+  opts: {
+    publisher?: "succeed" | "fail";
+    tenantSettings?: Record<string, unknown> | null;
+    phiSecondaryValidator?: PhiSecondaryValidator | { hasResidualPhi: () => boolean };
+    phiScrubber?: PhiScrubberService;
+  } = {},
+) {
   const tagger = new DataClassificationTagger(new ClassificationRuleEngine());
-  const phiScrubber = new PhiScrubberService();
+  const phiScrubber = opts.phiScrubber ?? new PhiScrubberService();
   const publisher = fakePublisher(opts.publisher ?? "succeed");
   const deadLetter = fakeDeadLetterRepository();
   const metricsAggregator = fakeMetricsAggregator();
+  const phiSecondaryValidator = opts.phiSecondaryValidator ?? new PhiSecondaryValidator(phiScrubber);
+  const auditEmitter = fakeAuditEmitter();
+  const quarantineRepository = fakeQuarantineRepository();
   const pipeline = new TelemetryPipelineService(
     {} as any,
     new TelemetrySchemaValidatorService(),
@@ -68,11 +94,14 @@ function buildPipeline(opts: { publisher?: "succeed" | "fail"; tenantSettings?: 
     publisher,
     deadLetter,
     metricsAggregator,
+    phiSecondaryValidator as any,
+    auditEmitter,
+    quarantineRepository,
   );
-  return { pipeline, publisher, deadLetter, metricsAggregator };
+  return { pipeline, publisher, deadLetter, metricsAggregator, auditEmitter, quarantineRepository };
 }
 
-test("a valid event is published and the response reports its classification tier and deadLettered:false", async () => {
+test("a valid event is published and the response reports its classification tier, deadLettered:false, and quarantined:false", async () => {
   const { pipeline, publisher } = buildPipeline();
   const event = validEvent();
   const result = await pipeline.process(undefined, event);
@@ -80,6 +109,7 @@ test("a valid event is published and the response reports its classification tie
   assert.equal(result.accepted, true);
   assert.equal(result.eventId, event.event_id);
   assert.equal(result.deadLettered, false);
+  assert.equal(result.quarantined, false);
   assert.equal(result.dataClassification, "internal", "agent_metrics resourceType classifies as INTERNAL by the platform default rules");
   assert.equal(publisher.published.length, 1);
 });
@@ -156,4 +186,71 @@ test("every processed event is handed to the metrics aggregator (WO-041), regard
   const failEvent = validEvent();
   await failingPipeline.process(undefined, failEvent);
   assert.equal(failingAggregator.recorded.length, 1, "metrics must still be recorded even when the Kafka publish itself fails");
+});
+
+test("WO-043: every masked field produces an immutable audit detection record", async () => {
+  const { pipeline, auditEmitter } = buildPipeline();
+  const event = validEvent({ metadata: { patient_ssn: "123-45-6789", note: "fine" } });
+
+  await pipeline.process(undefined, event);
+
+  assert.equal(auditEmitter.calls.length, 1);
+  assert.equal(auditEmitter.calls[0].eventId, event.event_id);
+  assert.equal(auditEmitter.calls[0].detections.length, 1);
+});
+
+test("WO-043: an event with no PHI produces zero audit detection calls", async () => {
+  const { pipeline, auditEmitter } = buildPipeline();
+  const event = validEvent({ metadata: { note: "nothing sensitive here" } });
+
+  await pipeline.process(undefined, event);
+
+  assert.equal(auditEmitter.calls.length, 0);
+});
+
+test("WO-043: when the secondary validator finds residual PHI, the event is quarantined instead of published", async () => {
+  const { pipeline, publisher, quarantineRepository } = buildPipeline({
+    phiSecondaryValidator: { hasResidualPhi: () => true },
+  });
+  const event = validEvent({ metadata: { note: "looks clean to the primary pass" } });
+
+  const result = await pipeline.process(undefined, event);
+
+  assert.equal(result.quarantined, true);
+  assert.equal(result.deadLettered, false);
+  assert.equal(publisher.published.length, 0, "a quarantined event must never reach the publisher");
+  assert.equal(quarantineRepository.records.length, 1);
+  assert.equal(quarantineRepository.records[0].event.event_id, event.event_id);
+  assert.match(quarantineRepository.records[0].reason, /[Ss]econdary/);
+});
+
+test("WO-043: never fails open — if primary PHI scrubbing itself throws, the event is quarantined rather than published unscrubbed", async () => {
+  const throwingScrubber = {
+    scrubWithDetections: () => {
+      throw new Error("pattern engine exploded");
+    },
+    scrubText: () => {
+      throw new Error("pattern engine exploded");
+    },
+  } as unknown as PhiScrubberService;
+  const { pipeline, publisher, quarantineRepository } = buildPipeline({ phiScrubber: throwingScrubber });
+  const event = validEvent({ metadata: { note: "irrelevant, scrubbing throws before this matters" } });
+
+  const result = await pipeline.process(undefined, event);
+
+  assert.equal(result.quarantined, true);
+  assert.equal(publisher.published.length, 0, "an event must never publish if scrubbing itself failed");
+  assert.equal(quarantineRepository.records.length, 1);
+  assert.match(quarantineRepository.records[0].reason, /PHI scrubbing error/);
+});
+
+test("WO-043: a quarantined event is still recorded to the metrics aggregator", async () => {
+  const { pipeline, metricsAggregator } = buildPipeline({
+    phiSecondaryValidator: { hasResidualPhi: () => true },
+  });
+  const event = validEvent();
+
+  await pipeline.process(undefined, event);
+
+  assert.equal(metricsAggregator.recorded.length, 1, "quarantining is about Kafka publication, not the agent's own observed behavior metrics");
 });
