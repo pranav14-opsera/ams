@@ -8,6 +8,7 @@ import { AgentStateTransitionsRepository } from "./agent-state-transitions.repos
 import { AgentsController } from "./agents.controller";
 import { AgentsRepository } from "./agents.repository";
 import { AgentsService } from "./agents.service";
+import { BulkLifecycleService } from "./bulk-lifecycle.service";
 import { LifecycleService } from "./lifecycle.service";
 
 @Module({
@@ -19,6 +20,7 @@ import { LifecycleService } from "./lifecycle.service";
     AgentStateTransitionsRepository,
     AgentInFlightOperationsService,
     LifecycleService,
+    BulkLifecycleService,
     { provide: AUDIT_SERVICE, useClass: PostgresAuditService },
   ],
 })

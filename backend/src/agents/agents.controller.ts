@@ -3,7 +3,9 @@ import type { Request } from "express";
 import { PermissionName } from "../rbac/rbac.constants";
 import { RequirePermission } from "../rbac/require-permission.decorator";
 import { AgentsService } from "./agents.service";
+import { BulkLifecycleService } from "./bulk-lifecycle.service";
 import { CreateAgentDto } from "./dto/create-agent.dto";
+import { BulkLifecycleDto } from "./dto/bulk-lifecycle.dto";
 import { LifecycleTransitionDto } from "./dto/lifecycle-transition.dto";
 import { ListAgentsQueryDto } from "./dto/list-agents-query.dto";
 import { UpdateAgentDto } from "./dto/update-agent.dto";
@@ -14,6 +16,7 @@ export class AgentsController {
   constructor(
     private readonly agentsService: AgentsService,
     private readonly lifecycleService: LifecycleService,
+    private readonly bulkLifecycleService: BulkLifecycleService,
   ) {}
 
   @Post()
@@ -52,5 +55,12 @@ export class AgentsController {
   async transitionLifecycle(@Param("id") id: string, @Body() dto: LifecycleTransitionDto, @Req() req: Request) {
     const result = await this.lifecycleService.transition(req.tenantDbClient, req.tenantId!, req.actorId ?? null, id, dto.targetStatus, dto.justification);
     return { ...result.agent, warning: result.warning };
+  }
+
+  @Post("bulk-lifecycle")
+  @HttpCode(HttpStatus.OK)
+  @RequirePermission(PermissionName.AGENT_BULK_LIFECYCLE_CONTROL)
+  async bulkTransitionLifecycle(@Body() dto: BulkLifecycleDto, @Req() req: Request) {
+    return this.bulkLifecycleService.execute(req.tenantDbClient, req.tenantId!, req.actorId ?? null, dto);
   }
 }
