@@ -14,6 +14,7 @@ import { TenantContextMiddleware } from "./common/tenant-context.middleware";
 import { HealthController } from "./health.controller";
 import { AgentsModule } from "./agents/agents.module";
 import { AuditModule } from "./audit/audit.module";
+import { DashboardModule } from "./dashboard/dashboard.module";
 import { GatewayModule } from "./gateway/gateway.module";
 import { PhiScrubberModule } from "./phi-scrubber/phi-scrubber.module";
 import { RbacModule } from "./rbac/rbac.module";
@@ -67,6 +68,7 @@ const ADAPTER_TELEMETRY_ROUTES = ["api/v1/adapters/*/telemetry"];
     RbacModule,
     ScimModule,
     AgentsModule,
+    DashboardModule,
     AdaptersModule,
     LangChainModule,
     RestModule,
