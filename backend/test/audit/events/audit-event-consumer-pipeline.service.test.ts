@@ -43,13 +43,18 @@ function fakeDeadLetterRepository() {
   return { records, record: async (_client: unknown, event: CanonicalAuditEvent, errorMessage: string) => { records.push({ event, errorMessage }); } } as any;
 }
 
+function fakeIngestionCounterRepository() {
+  return { increment: async () => undefined } as any;
+}
+
 function buildPipeline(opts: { enrichment?: "succeed" | "fail" } = {}) {
   const schemaValidator = new AuditEventSchemaValidatorService();
   const enrichmentService = fakeEnrichmentService(opts.enrichment ?? "succeed");
   const phiScrubber = new PhiScrubberService();
   const auditStoreRepository = fakeAuditStoreRepository();
   const deadLetterRepository = fakeDeadLetterRepository();
-  const pipeline = new AuditEventConsumerPipelineService(schemaValidator, enrichmentService, phiScrubber, auditStoreRepository, deadLetterRepository);
+  const ingestionCounter = fakeIngestionCounterRepository();
+  const pipeline = new AuditEventConsumerPipelineService(schemaValidator, enrichmentService, phiScrubber, auditStoreRepository, deadLetterRepository, ingestionCounter);
   return { pipeline, auditStoreRepository, deadLetterRepository };
 }
 

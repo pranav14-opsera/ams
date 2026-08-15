@@ -6,6 +6,7 @@ import { AuditStoreRepository } from "../../../src/audit/audit-store.repository"
 import { AuditEnrichmentService } from "../../../src/audit/events/audit-enrichment.service";
 import { AuditEventConsumerPipelineService } from "../../../src/audit/events/audit-event-consumer-pipeline.service";
 import { AuditEventDeadLetterRepository } from "../../../src/audit/events/audit-event-dead-letter.repository";
+import { AuditIngestionCounterRepository } from "../../../src/audit/reconciliation/audit-ingestion-counter.repository";
 import { AuditEventProducerService } from "../../../src/audit/events/audit-event-producer.service";
 import { AuditEventSchemaValidatorService } from "../../../src/audit/events/audit-event-schema-validator.service";
 import { KafkaAuditEventProducerService } from "../../../src/audit/events/kafka-audit-event-producer.service";
@@ -94,6 +95,7 @@ test("full pipeline: SDK produce attempt -> in-process consume -> enrichment -> 
       new PhiScrubberService(),
       new AuditStoreRepository(appPool),
       new AuditEventDeadLetterRepository(appPool),
+      new AuditIngestionCounterRepository(appPool),
     );
 
     const event = canonicalEvent(tenant.id, { change_details: { patient_name: "Jane Doe", note: "reviewed at follow-up, SSN 000-00-0000 confirmed" } });
@@ -143,6 +145,7 @@ test("full pipeline: an event referencing an unknown tenant is routed to the DLQ
       new PhiScrubberService(),
       new AuditStoreRepository(appPool),
       new AuditEventDeadLetterRepository(appPool),
+      new AuditIngestionCounterRepository(appPool),
     );
 
     const unknownTenantId = randomUUID();

@@ -3,6 +3,7 @@ import type { Pool, PoolClient } from "pg";
 import { AuditStoreRepository } from "../audit-store.repository";
 import type { DataClassification } from "../../classification/data-classification.enum";
 import { PhiScrubberService } from "../../phi-scrubber/phi-scrubber.service";
+import { AuditIngestionCounterRepository } from "../reconciliation/audit-ingestion-counter.repository";
 import { AuditEnrichmentService } from "./audit-enrichment.service";
 import { AuditEventDeadLetterRepository } from "./audit-event-dead-letter.repository";
 import { AuditEventSchemaValidatorService } from "./audit-event-schema-validator.service";
@@ -37,9 +38,18 @@ export class AuditEventConsumerPipelineService {
     private readonly phiScrubber: PhiScrubberService,
     private readonly auditStoreRepository: AuditStoreRepository,
     private readonly deadLetterRepository: AuditEventDeadLetterRepository,
+    private readonly ingestionCounter: AuditIngestionCounterRepository,
   ) {}
 
   async process(client: Pool | PoolClient | undefined, event: CanonicalAuditEvent): Promise<AuditEventConsumerResult> {
+    // WO-048: counted BEFORE schema validation — an "attempt" for
+    // reconciliation purposes means this pipeline was ever invoked with
+    // the event at all, regardless of what happens next. Best-effort:
+    // a counter failure must never block real event processing.
+    if (event?.tenant_id) {
+      await this.ingestionCounter.increment(event.tenant_id, new Date(), client).catch((err) => this.logger.warn(`failed to increment ingestion counter for tenant ${event.tenant_id}: ${err instanceof Error ? err.message : err}`));
+    }
+
     const validation = this.schemaValidator.validate(event);
     if (!validation.valid) {
       // Never fail open: an event that doesn't even match the canonical
