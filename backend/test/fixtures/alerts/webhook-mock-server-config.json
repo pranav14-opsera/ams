@@ -1,0 +1,10 @@
+{
+  "description": "Mock webhook endpoint server configuration (WO-060 AC) — describes the local HTTP server webhook-alert-channel.service.test.ts and the WO-060 integration test spin up for real (127.0.0.1, ephemeral port), not a fixed external mock. Documented here as the reference shape a real deployment's webhook receiver should match.",
+  "requestShape": {
+    "method": "POST",
+    "headers": { "Content-Type": "application/json", "X-Signature-256": "sha256=<hex-encoded HMAC-SHA256 of the raw request body, using the tenant's configured webhook secret>" },
+    "bodyIsJsonEncodedAlertEvent": true
+  },
+  "expectedResponseForSuccess": { "status": 200 },
+  "retryBehaviorOnNon2xxOrTimeout": { "maxAttempts": 4, "backoffMs": [1000, 5000, 25000], "timeoutMs": 10000 }
+}

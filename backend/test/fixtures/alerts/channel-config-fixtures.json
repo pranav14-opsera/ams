@@ -1,0 +1,13 @@
+{
+  "description": "Channel configuration fixtures for 3 tenants (WO-060 AC) — webhook and email delivery channel shapes for local dev/CI seeding. Secrets shown here are plaintext for fixture purposes only; the real schema (migration 047) stores them BYOK-encrypted, never plaintext.",
+  "webhooks": [
+    { "tenantId": "tenant-alpha", "url": "https://hooks.tenant-alpha.example.com/alerts", "secret": "alpha-webhook-secret-abc123", "enabled": true },
+    { "tenantId": "tenant-beta", "url": "https://hooks.tenant-beta.example.com/alerts", "secret": "beta-webhook-secret-def456", "enabled": true },
+    { "tenantId": "tenant-gamma", "url": "https://hooks.tenant-gamma.example.com/alerts", "secret": "gamma-webhook-secret-ghi789", "enabled": false }
+  ],
+  "emailChannels": [
+    { "tenantId": "tenant-alpha", "recipients": ["ops-alpha@example.com", "oncall-alpha@example.com"], "enabled": true },
+    { "tenantId": "tenant-beta", "recipients": ["ops-beta@example.com"], "enabled": true },
+    { "tenantId": "tenant-gamma", "recipients": ["ops-gamma@example.com"], "enabled": false }
+  ]
+}

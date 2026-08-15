@@ -81,10 +81,11 @@ class FakeHealthRepository {
   }
 }
 
-class FakePubSub {
-  public published: unknown[] = [];
-  async publish(tenantId: string, channel: string, message: unknown) {
-    this.published.push({ tenantId, channel, message });
+/** WO-060: ThresholdEvaluatorService now hands each generated alert to AlertDeliveryService (which owns dispatching to every configured channel, including websocket) rather than publishing to Redis pub/sub itself. */
+class FakeAlertDeliveryService {
+  public delivered: unknown[] = [];
+  async deliver(alertEvent: unknown) {
+    this.delivered.push(alertEvent);
   }
 }
 
@@ -93,9 +94,9 @@ function buildRig() {
   const eventRepository = new FakeEventRepository();
   const snapshotCache = new FakeSnapshotCache();
   const healthRepository = new FakeHealthRepository();
-  const pubsub = new FakePubSub();
-  const evaluator = new ThresholdEvaluatorService(thresholdRepository as any, eventRepository as any, snapshotCache as any, healthRepository as any, pubsub as any);
-  return { thresholdRepository, eventRepository, snapshotCache, healthRepository, pubsub, evaluator };
+  const alertDeliveryService = new FakeAlertDeliveryService();
+  const evaluator = new ThresholdEvaluatorService(thresholdRepository as any, eventRepository as any, snapshotCache as any, healthRepository as any, alertDeliveryService as any);
+  return { thresholdRepository, eventRepository, snapshotCache, healthRepository, alertDeliveryService, evaluator };
 }
 
 test("a value below warning generates no alert", async () => {
@@ -196,16 +197,15 @@ test("a threshold configured for a metric with no cached snapshot value (e.g. re
   assert.equal(events.length, 0);
 });
 
-test("a generated alert is published to the tenant's 'alerts' channel", async () => {
-  const { thresholdRepository, healthRepository, snapshotCache, pubsub, evaluator } = buildRig();
+test("a generated alert is handed to AlertDeliveryService for multi-channel dispatch", async () => {
+  const { thresholdRepository, healthRepository, snapshotCache, alertDeliveryService, evaluator } = buildRig();
   thresholdRepository.thresholds = [makeThreshold()];
   healthRepository.rows = [makeHealthRow({ errorRateAvg: 0.9 })];
   snapshotCache.snapshots.set("agent-1", { error_rate: 0.9 });
 
-  await evaluator.evaluateTenant("tenant-a");
-  assert.equal(pubsub.published.length, 1);
-  assert.equal((pubsub.published[0] as any).tenantId, "tenant-a");
-  assert.equal((pubsub.published[0] as any).channel, "alerts");
+  const events = await evaluator.evaluateTenant("tenant-a");
+  assert.equal(alertDeliveryService.delivered.length, 1);
+  assert.equal((alertDeliveryService.delivered[0] as any).id, events[0].id);
 });
 
 test("with zero thresholds configured for the tenant, the evaluator does no work at all (no health query, no events)", async () => {

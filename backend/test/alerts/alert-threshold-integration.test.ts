@@ -4,11 +4,22 @@ import { Pool } from "pg";
 import { MetricsAggregatorRepository } from "../../src/adapters/metrics/metrics-aggregator.repository";
 import { MetricsAggregatorService } from "../../src/adapters/metrics/metrics-aggregator.service";
 import { TelemetryEventType, type CanonicalTelemetryEvent } from "../../src/adapters/schemas/canonical-telemetry";
+import { AlertChannelConfigService } from "../../src/alerts/alert-channel-config.service";
+import { AlertDeliveryLogRepository } from "../../src/alerts/alert-delivery-log.repository";
+import { AlertDeliveryService } from "../../src/alerts/alert-delivery.service";
 import { AlertEventRepository } from "../../src/alerts/alert-event.repository";
 import { AlertThresholdRepository } from "../../src/alerts/alert-threshold.repository";
 import { AlertThresholdService } from "../../src/alerts/alert-threshold.service";
+import { ChannelConfigCacheService } from "../../src/alerts/channel-config-cache.service";
+import { EmailAlertChannelService } from "../../src/alerts/channels/email-alert-channel.service";
+import { WebhookAlertChannelService } from "../../src/alerts/channels/webhook-alert-channel.service";
+import { WebSocketAlertChannelService } from "../../src/alerts/channels/websocket-alert-channel.service";
+import { EmailChannelConfigRepository } from "../../src/alerts/email-channel-config.repository";
 import { MetricSnapshotCacheService } from "../../src/alerts/metric-snapshot-cache.service";
+import { InMemoryEmailProviderService } from "../../src/alerts/ports/in-memory/in-memory-email-provider.service";
 import { ThresholdEvaluatorService } from "../../src/alerts/threshold-evaluator.service";
+import { WebhookConfigRepository } from "../../src/alerts/webhook-config.repository";
+import { PhiScrubberService } from "../../src/phi-scrubber/phi-scrubber.service";
 import { AgentsRepository } from "../../src/agents/agents.repository";
 import { AgentsService } from "../../src/agents/agents.service";
 import { HealthDashboardRepository } from "../../src/dashboard/health-dashboard.repository";
@@ -35,8 +46,10 @@ async function cleanupTenant(pool: Pool, slug: string): Promise<void> {
   const tenant = await pool.query("SELECT id FROM tenants WHERE slug = $1", [slug]);
   if (tenant.rows.length === 0) return;
   const tenantId = tenant.rows[0].id;
-  await pool.query("DELETE FROM alert_events WHERE tenant_id = $1", [tenantId]);
+  await pool.query("DELETE FROM alert_events WHERE tenant_id = $1", [tenantId]); // cascades to alert_delivery_log
   await pool.query("DELETE FROM alert_threshold_configs WHERE tenant_id = $1", [tenantId]);
+  await pool.query("DELETE FROM webhook_configs WHERE tenant_id = $1", [tenantId]);
+  await pool.query("DELETE FROM email_channel_configs WHERE tenant_id = $1", [tenantId]);
   await pool.query("DELETE FROM agent_metrics WHERE tenant_id = $1", [tenantId]);
   await pool.query("DELETE FROM audit_events WHERE tenant_id = $1", [tenantId]);
   await pool.query("DELETE FROM agents WHERE tenant_id = $1", [tenantId]);
@@ -77,7 +90,37 @@ async function provisionTenantAndAgent(pool: Pool, slug: string) {
   const agentsService = new AgentsService(pool, agentsRepository, encryptionService, audit, buildAdapterHealthService(pool));
   const tenant = await saga.provision({ name: `Alerts ${slug}`, slug, dataResidencyRegion: "us", actorId: null });
   const agent = await agentsService.create(pool, tenant.id, null, { name: "Alerting Agent", framework: "langchain", connectionConfig: {} });
-  return { tenant, agent };
+  return { tenant, agent, encryptionService };
+}
+
+/** A real AlertDeliveryService (real repositories/channels against real Postgres+Redis) but with the mock email provider — no real SES credentials exist in this sandbox. `encryptionService` MUST be the same instance used to provision the tenant (its in-memory KMS holds that tenant's key material). */
+function buildAlertDeliveryService(pool: Pool, encryptionService: EncryptionService) {
+  const webhookConfigRepository = new WebhookConfigRepository(pool);
+  const emailConfigRepository = new EmailChannelConfigRepository(pool);
+  const configCache = new ChannelConfigCacheService();
+  const deliveryLogRepository = new AlertDeliveryLogRepository(pool);
+  const alertsPubsub = new RedisPubSubService();
+  const websocketChannel = new WebSocketAlertChannelService(alertsPubsub);
+  const webhookChannel = new WebhookAlertChannelService();
+  const emailProvider = new InMemoryEmailProviderService();
+  const agentsRepository = new AgentsRepository(pool);
+  const emailChannel = new EmailAlertChannelService(emailProvider, agentsRepository, new PhiScrubberService());
+  const auditService = new InMemoryAuditService();
+
+  const deliveryService = new AlertDeliveryService(
+    webhookConfigRepository,
+    emailConfigRepository,
+    configCache,
+    encryptionService,
+    deliveryLogRepository,
+    websocketChannel,
+    webhookChannel,
+    emailChannel,
+    auditService,
+  );
+  const configService = new AlertChannelConfigService(webhookConfigRepository, emailConfigRepository, encryptionService, configCache, auditService, websocketChannel, webhookChannel, emailChannel);
+
+  return { deliveryService, configService, webhookConfigRepository, emailConfigRepository, deliveryLogRepository, configCache, emailProvider, auditService, alertsPubsub, emailChannel };
 }
 
 test("real Postgres+Redis: configure a threshold via the service, inject a breaching metric, evaluate, and verify an alert event is generated and published within the 60s AC window", { skip }, async () => {
@@ -89,14 +132,21 @@ test("real Postgres+Redis: configure a threshold via the service, inject a breac
   const eventRepository = new AlertEventRepository(pool);
   const snapshotCache = new MetricSnapshotCacheService();
   const healthRepository = new HealthDashboardRepository(pool);
-  const pubsub = new RedisPubSubService();
   const auditService = new InMemoryAuditService();
   const thresholdService = new AlertThresholdService(thresholdRepository, auditService);
-  const evaluator = new ThresholdEvaluatorService(thresholdRepository, eventRepository, snapshotCache, healthRepository, pubsub);
+  let configCache: ChannelConfigCacheService | undefined;
+  let alertsPubsub: RedisPubSubService | undefined;
+  let emailChannel: EmailAlertChannelService | undefined;
 
   try {
-    const { tenant, agent } = await provisionTenantAndAgent(pool, slug);
+    const { tenant, agent, encryptionService } = await provisionTenantAndAgent(pool, slug);
     await ensureCurrentMetricsPartition(pool);
+    const built = buildAlertDeliveryService(pool, encryptionService);
+    const { deliveryService, deliveryLogRepository } = built;
+    configCache = built.configCache;
+    alertsPubsub = built.alertsPubsub;
+    emailChannel = built.emailChannel;
+    const evaluator = new ThresholdEvaluatorService(thresholdRepository, eventRepository, snapshotCache, healthRepository, deliveryService);
 
     // Configure a threshold via the real service (CRUD path, tenant-scoped, audited).
     const adminUserId = "00000000-0000-0000-0000-0000000000a1";
@@ -146,6 +196,12 @@ test("real Postgres+Redis: configure a threshold via the service, inject a breac
     assert.ok(persisted);
     assert.equal(persisted!.id, generatedEvents[0].id);
 
+    // WO-060: the in-app (websocket) channel is always attempted, even with zero webhook/email channels configured — verify its delivery attempt was logged.
+    const deliveryLog = await deliveryLogRepository.findByAlertEvent(pool, tenant.id, generatedEvents[0].id);
+    assert.equal(deliveryLog.length, 1, "exactly one channel (websocket) should have attempted delivery with no webhook/email configured");
+    assert.equal(deliveryLog[0].channel_type, "websocket");
+    assert.equal(deliveryLog[0].status, "sent");
+
     // Re-evaluating immediately must NOT produce a second alert (cooldown).
     const secondPass = await evaluator.evaluateTenant(tenant.id);
     assert.equal(secondPass.length, 0, "cooldown must suppress a second alert for the same breach");
@@ -156,7 +212,9 @@ test("real Postgres+Redis: configure a threshold via the service, inject a breac
     void threshold;
   } finally {
     await snapshotCache.onModuleDestroy();
-    await pubsub.onModuleDestroy();
+    await configCache?.onModuleDestroy();
+    await emailChannel?.onModuleDestroy();
+    await alertsPubsub?.onModuleDestroy();
     await cleanupTenant(pool, slug);
     await pool.end();
   }

@@ -1,0 +1,8 @@
+{
+  "description": "Sample alert events (WO-060 AC) for local dev/CI seeding — matches the AlertEvent shape produced by ThresholdEvaluatorService (WO-059).",
+  "events": [
+    { "tenantId": "tenant-alpha", "agentId": "agent-1", "metricName": "error_rate", "thresholdValue": 0.05, "actualValue": 0.42, "severity": "critical", "breachTimestamp": "2026-08-16T00:00:00.000Z" },
+    { "tenantId": "tenant-alpha", "agentId": "agent-2", "metricName": "latency_p99", "thresholdValue": 1500, "actualValue": 1750, "severity": "warning", "breachTimestamp": "2026-08-16T00:05:00.000Z" },
+    { "tenantId": "tenant-beta", "agentId": "agent-4", "metricName": "token_consumption_rate", "thresholdValue": 900, "actualValue": 1200, "severity": "critical", "breachTimestamp": "2026-08-16T00:10:00.000Z" }
+  ]
+}

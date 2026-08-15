@@ -1,0 +1,16 @@
+{
+  "description": "Email template test data (WO-060 AC) — the Handlebars context threshold-breach.template.ts is rendered with, for local dev/preview and as documentation of the template's expected variables.",
+  "context": {
+    "agentName": "Claims Processor",
+    "metricName": "error_rate",
+    "thresholdValue": 0.05,
+    "actualValue": 0.42,
+    "severityLabel": "CRITICAL",
+    "breachTimestamp": "2026-08-16T00:00:00.000Z",
+    "detailUrl": "https://app.example.com/agents/health/detail?agentId=agent-1"
+  },
+  "phiTestCase": {
+    "description": "Same context but with a PHI-shaped agent name — verifies TraceService-style masking (PhiScrubberService.scrubText) removes it before rendering, per email-alert-channel.service.test.ts's own PHI-leak test.",
+    "agentName": "Patient SSN 123-45-6789 handler"
+  }
+}

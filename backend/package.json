@@ -12,6 +12,7 @@
     "test:load-regression": "tsx test/load/regression-test.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-sesv2": "^3.1111.0",
     "@nestjs/common": "^11.2.0",
     "@nestjs/core": "^11.2.0",
     "@nestjs/platform-express": "^11.2.0",
@@ -23,6 +24,7 @@
     "ajv-formats": "^3.0.1",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
+    "handlebars": "^4.7.9",
     "helmet": "^8.3.0",
     "ioredis": "^6.0.0",
     "jsonwebtoken": "^9.0.2",
