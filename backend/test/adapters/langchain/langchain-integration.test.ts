@@ -8,6 +8,8 @@ import { AdaptersController } from "../../../src/adapters/adapters.controller";
 import { HmacValidationMiddleware } from "../../../src/adapters/hmac-validation.middleware";
 import { KafkaTelemetryProducerService } from "../../../src/adapters/kafka/kafka-telemetry-producer.service";
 import { TelemetryDeadLetterRepository } from "../../../src/adapters/kafka/telemetry-dead-letter.repository";
+import { MetricsAggregatorRepository } from "../../../src/adapters/metrics/metrics-aggregator.repository";
+import { MetricsAggregatorService } from "../../../src/adapters/metrics/metrics-aggregator.service";
 import { LangChainAdapter } from "../../../src/adapters/langchain/langchain-adapter";
 import { LangChainConnectionValidator } from "../../../src/adapters/langchain/langchain-connection-validator";
 import { TelemetryPipelineService } from "../../../src/adapters/pipeline/telemetry-pipeline.service";
@@ -65,6 +67,7 @@ async function buildRig(pool: Pool) {
     new PhiScrubberService(),
     new KafkaTelemetryProducerService(),
     new TelemetryDeadLetterRepository(pool),
+    new MetricsAggregatorService(new MetricsAggregatorRepository(pool)),
   );
 
   const registry = new AdapterRegistryService();

@@ -6,6 +6,7 @@ import { PhiScrubberService } from "../../phi-scrubber/phi-scrubber.service";
 import { TenantRepository } from "../../tenants/tenant.repository";
 import { TELEMETRY_PUBLISHER, type TelemetryPublisherPort } from "../kafka/telemetry-publisher.port";
 import { TelemetryDeadLetterRepository } from "../kafka/telemetry-dead-letter.repository";
+import { MetricsAggregatorService } from "../metrics/metrics-aggregator.service";
 import { TelemetrySchemaValidatorService } from "../telemetry-schema-validator.service";
 import type { CanonicalTelemetryEvent } from "../schemas/canonical-telemetry";
 
@@ -51,6 +52,7 @@ export class TelemetryPipelineService {
     private readonly phiScrubber: PhiScrubberService,
     @Inject(TELEMETRY_PUBLISHER) private readonly publisher: TelemetryPublisherPort,
     private readonly deadLetterRepository: TelemetryDeadLetterRepository,
+    private readonly metricsAggregator: MetricsAggregatorService,
   ) {}
 
   async process(client: Pool | PoolClient | undefined, event: CanonicalTelemetryEvent): Promise<TelemetryPipelineResult> {
@@ -96,6 +98,12 @@ export class TelemetryPipelineService {
       await this.deadLetterRepository.record(client, outboundEvent, message);
       deadLettered = true;
     }
+
+    // WO-041: feeds the pre-existing agent_metrics rolling-aggregate
+    // pipeline (migration 007) — recorded regardless of Kafka publish
+    // outcome, since this is about the agent's own observed behavior,
+    // not about delivery status.
+    await this.metricsAggregator.recordCanonicalEvent(client, outboundEvent);
 
     return { accepted: true, eventId: event.event_id, dataClassification: tagged.data_classification, deadLettered };
   }

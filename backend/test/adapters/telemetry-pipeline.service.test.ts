@@ -48,11 +48,17 @@ function fakeDeadLetterRepository() {
   return { records, record: async (_client: unknown, event: CanonicalTelemetryEvent, error: string) => { records.push({ event, error }); } } as any;
 }
 
+function fakeMetricsAggregator() {
+  const recorded: CanonicalTelemetryEvent[] = [];
+  return { recorded, recordCanonicalEvent: async (_client: unknown, event: CanonicalTelemetryEvent) => { recorded.push(event); } } as any;
+}
+
 function buildPipeline(opts: { publisher?: "succeed" | "fail"; tenantSettings?: Record<string, unknown> | null } = {}) {
   const tagger = new DataClassificationTagger(new ClassificationRuleEngine());
   const phiScrubber = new PhiScrubberService();
   const publisher = fakePublisher(opts.publisher ?? "succeed");
   const deadLetter = fakeDeadLetterRepository();
+  const metricsAggregator = fakeMetricsAggregator();
   const pipeline = new TelemetryPipelineService(
     {} as any,
     new TelemetrySchemaValidatorService(),
@@ -61,8 +67,9 @@ function buildPipeline(opts: { publisher?: "succeed" | "fail"; tenantSettings?: 
     phiScrubber,
     publisher,
     deadLetter,
+    metricsAggregator,
   );
-  return { pipeline, publisher, deadLetter };
+  return { pipeline, publisher, deadLetter, metricsAggregator };
 }
 
 test("a valid event is published and the response reports its classification tier and deadLettered:false", async () => {
@@ -136,4 +143,17 @@ test("tenant enrichment passes the tenant's own PHI pattern overrides through to
   await pipeline.process(undefined, event);
 
   assert.notEqual(publisher.published[0].metadata.custom_secret_field, "should-be-masked");
+});
+
+test("every processed event is handed to the metrics aggregator (WO-041), regardless of Kafka publish outcome", async () => {
+  const { pipeline: succeedingPipeline, metricsAggregator: succeedingAggregator } = buildPipeline({ publisher: "succeed" });
+  const succeedEvent = validEvent();
+  await succeedingPipeline.process(undefined, succeedEvent);
+  assert.equal(succeedingAggregator.recorded.length, 1);
+  assert.equal(succeedingAggregator.recorded[0].event_id, succeedEvent.event_id);
+
+  const { pipeline: failingPipeline, metricsAggregator: failingAggregator } = buildPipeline({ publisher: "fail" });
+  const failEvent = validEvent();
+  await failingPipeline.process(undefined, failEvent);
+  assert.equal(failingAggregator.recorded.length, 1, "metrics must still be recorded even when the Kafka publish itself fails");
 });
