@@ -6,6 +6,7 @@ import { ErrorCode } from "../shared/errors/error-codes.enum";
 import { getRequestId } from "../shared/errors/request-id";
 import { AUDIT_SERVICE, type AuditServicePort } from "../tenants/ports/audit-service.port";
 import { NO_PERMISSION_REQUIRED_KEY } from "./no-permission-required.decorator";
+import { REQUIRE_ANY_PERMISSION_KEY } from "./require-any-permission.decorator";
 import { REQUIRE_PERMISSION_KEY } from "./require-permission.decorator";
 import { RESOURCE_TEAM_PARAM_KEY } from "./resource-team-param.decorator";
 import { TeamMembershipRepository } from "./team-membership.repository";
@@ -48,15 +49,20 @@ export class RbacGuard implements CanActivate {
     if (noPermissionRequired) return true;
 
     const requiredPermission = this.reflector.getAllAndOverride<string | undefined>(REQUIRE_PERMISSION_KEY, [context.getHandler(), context.getClass()]);
+    const requireAnyPermission = this.reflector.getAllAndOverride<string[] | undefined>(REQUIRE_ANY_PERMISSION_KEY, [context.getHandler(), context.getClass()]);
     const req = context.switchToHttp().getRequest<Request>();
 
-    if (!requiredPermission) {
-      this.logger.warn(`security event: route ${req.method} ${req.originalUrl} has no @RequirePermission decorator — denying by default`);
+    if (!requiredPermission && !requireAnyPermission) {
+      this.logger.warn(`security event: route ${req.method} ${req.originalUrl} has no @RequirePermission/@RequireAnyPermission decorator — denying by default`);
       await this.deny(req, "unknown", "no_permission_declared");
     }
 
     const grantedPermissions = req.permissions ?? [];
-    if (!grantedPermissions.includes(requiredPermission!)) {
+    if (requireAnyPermission) {
+      if (!requireAnyPermission.some((p) => grantedPermissions.includes(p))) {
+        await this.deny(req, requireAnyPermission.join(" OR "), "insufficient_permission");
+      }
+    } else if (!grantedPermissions.includes(requiredPermission!)) {
       await this.deny(req, requiredPermission!, "insufficient_permission");
     }
 
