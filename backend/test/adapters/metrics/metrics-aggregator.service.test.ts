@@ -23,7 +23,7 @@ function fakeEvent(overrides: Partial<CanonicalTelemetryEvent> = {}): CanonicalT
     event_type: "metric" as any,
     latency_ms: 120,
     error_rate: 0,
-    token_consumption: 10,
+    token_consumption: null,
     tool_call_success: null,
     tool_call_name: null,
     framework_type: "generic_rest",
@@ -66,6 +66,30 @@ test("records error_rate: 0 (a valid, meaningful success signal, not treated as 
   assert.equal(repository.calls.length, 1);
   assert.equal(repository.calls[0].metricName, "error_rate");
   assert.equal(repository.calls[0].value, 0);
+});
+
+test("WO-042: records token_consumption when present", async () => {
+  const repository = fakeRepository();
+  const service = new MetricsAggregatorService(repository);
+  await service.recordCanonicalEvent(undefined, fakeEvent({ latency_ms: null, error_rate: null, token_consumption: 450 }));
+  assert.equal(repository.calls.length, 1);
+  assert.equal(repository.calls[0].metricName, "token_consumption");
+  assert.equal(repository.calls[0].value, 450);
+});
+
+test("WO-042: records tool_call_success as 1/0 so aggregate views can average it", async () => {
+  const repository = fakeRepository();
+  const service = new MetricsAggregatorService(repository);
+
+  await service.recordCanonicalEvent(undefined, fakeEvent({ latency_ms: null, error_rate: null, tool_call_success: true }));
+  assert.equal(repository.calls[0].metricName, "tool_call_success");
+  assert.equal(repository.calls[0].value, 1);
+
+  const repository2 = fakeRepository();
+  const service2 = new MetricsAggregatorService(repository2);
+  await service2.recordCanonicalEvent(undefined, fakeEvent({ latency_ms: null, error_rate: null, tool_call_success: false }));
+  assert.equal(repository2.calls[0].metricName, "tool_call_success");
+  assert.equal(repository2.calls[0].value, 0);
 });
 
 test("a repository failure is swallowed (best-effort) and never propagates to the caller", async () => {

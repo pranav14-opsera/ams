@@ -108,12 +108,15 @@ test("recordCanonicalEvent writes real rows that the pre-existing 5-minute aggre
     await metricsService.recordCanonicalEvent(pool, canonicalEvent(tenant.id, agent.id, { latency_ms: null, error_rate: 1 }));
 
     const rawRows = await pool.query("SELECT metric_name, value FROM agent_metrics WHERE tenant_id = $1 AND agent_id = $2", [tenant.id, agent.id]);
-    // 5 events each record BOTH a latency_ms row and an error_rate:0 row
-    // (0 is a meaningful value, not treated as absent), plus the 6th
-    // event records only its error_rate:1 row (latency_ms is null there).
-    assert.equal(rawRows.rows.length, 11);
+    // 5 events each record a latency_ms row, an error_rate:0 row (0 is a
+    // meaningful value, not treated as absent), and a token_consumption
+    // row (the canonicalEvent() fixture default of 10 — WO-042), plus the
+    // 6th event records its error_rate:1 and token_consumption rows only
+    // (latency_ms is null there).
+    assert.equal(rawRows.rows.length, 17);
     assert.equal(rawRows.rows.filter((r) => r.metric_name === "latency_ms").length, 5);
     assert.equal(rawRows.rows.filter((r) => r.metric_name === "error_rate").length, 6);
+    assert.equal(rawRows.rows.filter((r) => r.metric_name === "token_consumption").length, 6);
 
     // agent_metrics_5min_agg_scoped requires app.current_tenant to be
     // set (an unset context raises a Postgres error casting '' to uuid,

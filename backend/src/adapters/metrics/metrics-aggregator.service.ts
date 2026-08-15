@@ -41,6 +41,15 @@ export class MetricsAggregatorService {
       if (event.error_rate !== null) {
         await this.repository.recordMetric(event.tenant_id, event.agent_id, "error_rate", event.error_rate, client);
       }
+      if (event.token_consumption !== null) {
+        await this.repository.recordMetric(event.tenant_id, event.agent_id, "token_consumption", event.token_consumption, client);
+      }
+      if (event.tool_call_success !== null) {
+        // Stored as 1/0 so the aggregate views can compute an average
+        // ("tool-call success rate") the same way error_rate_avg is
+        // computed — a boolean column can't feed avg()/percentile_cont().
+        await this.repository.recordMetric(event.tenant_id, event.agent_id, "tool_call_success", event.tool_call_success ? 1 : 0, client);
+      }
     } catch (err) {
       this.logger.warn(`failed to record metrics for event ${event.event_id}: ${err instanceof Error ? err.message : err}`);
     }
