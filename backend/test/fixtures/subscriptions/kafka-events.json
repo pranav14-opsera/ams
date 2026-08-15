@@ -1,0 +1,8 @@
+{
+  "description": "Sample Kafka event envelopes for KafkaConsumerBridgeService tests, covering each real-time channel plus the PHI-adjacent one.",
+  "agent-health-event": { "tenantId": "tenant-a", "channel": "agent-health", "payload": { "agentId": "agent-1", "status": "healthy" } },
+  "credit-balance-event": { "tenantId": "tenant-b", "channel": "credit-balance", "payload": { "balance": 4200 } },
+  "alert-event": { "tenantId": "tenant-a", "channel": "alerts", "payload": { "severity": "critical", "message": "Agent timeout threshold exceeded" } },
+  "phi-access-event": { "tenantId": "tenant-a", "channel": "phi-access", "payload": { "accessedBy": "user-a1", "recordType": "patient_note" } },
+  "malformed-event": { "channel": "agent-health", "payload": { "agentId": "agent-2" } }
+}

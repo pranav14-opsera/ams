@@ -1,0 +1,33 @@
+{
+  "description": "5 users across 2 tenants with different roles/permissions, for SubscriptionRegistry/SubscriptionManager fixture-driven tests. Not real signed JWTs — this codebase's convention (test/fixtures/rbac) is to sign fresh tokens per test from JwtKeyService using these claim shapes.",
+  "tenant-a-platform-admin": {
+    "sub": "user-a1",
+    "tid": "tenant-a",
+    "roles": ["platform_admin"],
+    "permissions": ["audit_access:phi_monitoring:view", "agent_management:agent:create"]
+  },
+  "tenant-a-agent-operator": {
+    "sub": "user-a2",
+    "tid": "tenant-a",
+    "roles": ["agent_operator"],
+    "permissions": ["agent_management:agent:trigger", "agent_management:trace:view_assigned"]
+  },
+  "tenant-a-compliance-officer": {
+    "sub": "user-a3",
+    "tid": "tenant-a",
+    "roles": ["compliance_officer"],
+    "permissions": ["audit_access:phi_monitoring:view", "data_retention:phi_lifecycle:monitor"]
+  },
+  "tenant-b-finance-manager": {
+    "sub": "user-b1",
+    "tid": "tenant-b",
+    "roles": ["finance_manager"],
+    "permissions": ["credit_management:consumption:view_org"]
+  },
+  "tenant-b-team-lead": {
+    "sub": "user-b2",
+    "tid": "tenant-b",
+    "roles": ["team_lead"],
+    "permissions": ["credit_management:consumption:view_team"]
+  }
+}
