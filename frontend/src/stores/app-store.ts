@@ -27,8 +27,24 @@ const initialAuthState: AuthContextState = {
   permissions: [],
 };
 
+// E2E-only seam (WO-051): Playwright has no real backend to authenticate
+// against, so it seeds this ONE localStorage key via page.addInitScript
+// before the app ever loads, letting a test mock "logged in as this role,
+// with these permissions" without any window-global exposure or
+// NODE_ENV-gated dev code shipping differently between environments. A
+// real user session never writes this key — nothing else in the app does.
+function readE2eAuthOverride(): AuthContextState | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem("__ams_e2e_auth_override__");
+    return raw ? (JSON.parse(raw) as AuthContextState) : null;
+  } catch {
+    return null;
+  }
+}
+
 export const useAppStore = create<AppState>((set) => ({
-  auth: initialAuthState,
+  auth: readE2eAuthOverride() ?? initialAuthState,
   themePreference: "system",
   sidebarOpen: true,
   setAuth: (auth) => set({ auth }),

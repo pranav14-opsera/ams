@@ -1,0 +1,8 @@
+[
+  "credit_management:allocation:manage",
+  "credit_management:budget:configure",
+  "credit_management:overage_cap:manage",
+  "credit_management:consumption:view_org",
+  "credit_management:forecast:view",
+  "reporting:consumption_report:generate"
+]

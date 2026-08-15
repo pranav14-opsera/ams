@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import { Sidebar } from "@/components/navigation";
 import { QueryProvider } from "@/providers/query-provider";
 import { ThemeProvider } from "@/providers/theme-provider";
 import "./globals.css";
@@ -19,7 +20,14 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="en" suppressHydrationWarning>
       <body>
         <ThemeProvider>
-          <QueryProvider>{children}</QueryProvider>
+          <QueryProvider>
+            <div className="flex min-h-screen">
+              <Sidebar />
+              <main id="main-content" className="flex-1 p-6">
+                {children}
+              </main>
+            </div>
+          </QueryProvider>
         </ThemeProvider>
       </body>
     </html>

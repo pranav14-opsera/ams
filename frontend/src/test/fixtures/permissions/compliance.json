@@ -1,0 +1,13 @@
+[
+  "audit_access:logs:view_org",
+  "audit_access:phi_monitoring:view",
+  "governance:approval:review",
+  "governance:approval:approve",
+  "governance:escalation:manage",
+  "data_retention:policy:manage",
+  "data_retention:dsr:track",
+  "data_retention:deletion:schedule",
+  "data_retention:phi_lifecycle:monitor",
+  "reporting:compliance_report:generate",
+  "reporting:audit_summary:export"
+]
