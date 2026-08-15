@@ -1,3 +1,4 @@
+import { buildAdapterHealthService } from "../helpers/build-adapter-health-service";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Pool } from "pg";
@@ -34,7 +35,7 @@ async function buildRig(pool: Pool) {
   const audit = new PostgresAuditService(pool);
   const encryptionService = new EncryptionService(pool, kms, new TenantKeyMetadataRepository(), audit);
   const repository = new AgentsRepository(pool);
-  const service = new AgentsService(pool, repository, encryptionService, audit);
+  const service = new AgentsService(pool, repository, encryptionService, audit, buildAdapterHealthService(pool));
   return { saga, service, repository };
 }
 

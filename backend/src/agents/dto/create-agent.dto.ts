@@ -1,4 +1,4 @@
-import { IsIn, IsObject, IsOptional, IsUUID, MaxLength, MinLength } from "class-validator";
+import { IsIn, IsObject, IsOptional, IsString, IsUUID, MaxLength, MinLength } from "class-validator";
 
 // Matches the CHECK constraint exactly (database/migrations/004_create_agents.sql).
 // "generic_rest" (not "rest") is the established DB enum value — this
@@ -28,4 +28,12 @@ export class CreateAgentDto {
   @IsOptional()
   @IsObject()
   metadata?: Record<string, unknown>;
+
+  // Optional — WO-039's compatibility check. Never blocks registration
+  // (AC: "a warning is returned, not a hard block") — omitted entirely
+  // when the caller doesn't report a version, since there's nothing to
+  // check against.
+  @IsOptional()
+  @IsString()
+  frameworkVersion?: string;
 }

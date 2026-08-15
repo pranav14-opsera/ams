@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { ConflictException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 import type { Pool, PoolClient } from "pg";
 import { PG_POOL } from "../common/database/database.module";
+import { AdapterHealthService, type CompatibilityWarning } from "../adapters/health/adapter-health.service";
 import { DataClassification } from "../classification/data-classification.enum";
 import { EncryptionService } from "../encryption/encryption.service";
 import { AUDIT_SERVICE, type AuditServicePort } from "../tenants/ports/audit-service.port";
@@ -26,6 +27,12 @@ export interface CreateAgentResult extends AgentResource {
    * update), same write-only convention as connection_config.
    */
   hmacSecret: string;
+  /**
+   * WO-039's advisory (never blocking) framework-version compatibility
+   * check — only present when the caller supplied `frameworkVersion` in
+   * the create request.
+   */
+  compatibilityWarning?: CompatibilityWarning;
 }
 
 @Injectable()
@@ -35,13 +42,14 @@ export class AgentsService {
     private readonly repository: AgentsRepository,
     private readonly encryptionService: EncryptionService,
     @Inject(AUDIT_SERVICE) private readonly auditService: AuditServicePort,
+    private readonly adapterHealthService: AdapterHealthService,
   ) {}
 
   async create(
     client: Pool | PoolClient | undefined,
     tenantId: string,
     actorId: string | null,
-    input: { name: string; framework: AgentFramework; teamId?: string; connectionConfig: Record<string, unknown>; metadata?: Record<string, unknown> },
+    input: { name: string; framework: AgentFramework; teamId?: string; connectionConfig: Record<string, unknown>; metadata?: Record<string, unknown>; frameworkVersion?: string },
   ): Promise<CreateAgentResult> {
     const existing = await this.pool.query("SELECT id FROM agents WHERE tenant_id = $1 AND name = $2", [tenantId, input.name]);
     if (existing.rows.length > 0) {
@@ -76,7 +84,11 @@ export class AgentsService {
       dataClassification: DataClassification.RESTRICTED,
     });
 
-    return { ...toAgentResource(row), hmacSecret: hmacSecretBytes.toString("hex") };
+    const compatibilityWarning = input.frameworkVersion
+      ? await this.adapterHealthService.checkVersionCompatibility(input.framework, input.frameworkVersion)
+      : undefined;
+
+    return { ...toAgentResource(row), hmacSecret: hmacSecretBytes.toString("hex"), compatibilityWarning };
   }
 
   async findAll(
