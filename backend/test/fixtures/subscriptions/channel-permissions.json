@@ -1,0 +1,9 @@
+{
+  "description": "Channel-to-required-permission mapping used by ChannelPermissionsService tests. Mirrors PermissionName entries in rbac.constants.ts.",
+  "rules": [
+    { "channel": "agent-health" },
+    { "channel": "credit-balance" },
+    { "channel": "alerts" },
+    { "channel": "phi-access", "requiredPermissions": ["audit_access:phi_monitoring:view"] }
+  ]
+}
