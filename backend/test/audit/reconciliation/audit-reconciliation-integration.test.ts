@@ -15,6 +15,8 @@ import { AuditIngestionCounterRepository } from "../../../src/audit/reconciliati
 import { AuditReconciliationReportRepository } from "../../../src/audit/reconciliation/audit-reconciliation-report.repository";
 import { AuditReconciliationService } from "../../../src/audit/reconciliation/audit-reconciliation.service";
 import { AuditReplayService } from "../../../src/audit/reconciliation/audit-replay.service";
+import { ColdStorageManifestRepository } from "../../../src/audit/retention/cold-storage-manifest.repository";
+import { LocalFilesystemColdStorageService } from "../../../src/audit/retention/local-filesystem-cold-storage.service";
 import { PhiScrubberService } from "../../../src/phi-scrubber/phi-scrubber.service";
 import { InMemoryKmsService } from "../../../src/tenants/ports/in-memory/in-memory-kms.service";
 import { PostgresAuditService } from "../../../src/tenants/ports/postgres/postgres-audit.service";
@@ -97,7 +99,9 @@ test("daily reconciliation: a known gap (5 events attempted but never persisted 
     const reportRepository = new AuditReconciliationReportRepository(appPool);
     const producer = new AuditEventProducerService(kafkaProducer);
     const pipeline = buildPipeline(appPool);
-    const service = new AuditReconciliationService(appPool, counterRepository, reportRepository, producer, pipeline);
+    const manifestRepository = new ColdStorageManifestRepository(appPool);
+    const coldStorage = new LocalFilesystemColdStorageService();
+    const service = new AuditReconciliationService(appPool, counterRepository, reportRepository, producer, pipeline, manifestRepository, coldStorage);
 
     const now = new Date();
     const periodStart = new Date(now.getTime() - 60_000);
