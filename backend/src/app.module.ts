@@ -10,6 +10,7 @@ import { LangChainModule } from "./adapters/langchain/langchain.module";
 import { RestModule } from "./adapters/rest/rest.module";
 import { ClassificationModule } from "./classification/classification.module";
 import { DatabaseModule } from "./common/database/database.module";
+import { CreditsModule } from "./credits/credits.module";
 import { TenantContextMiddleware } from "./common/tenant-context.middleware";
 import { HealthController } from "./health.controller";
 import { AgentsModule } from "./agents/agents.module";
@@ -77,6 +78,7 @@ const ADAPTER_TELEMETRY_ROUTES = ["api/v1/adapters/*/telemetry"];
     AnomalyDetectionModule,
     QualityScoreModule,
     DriftDetectionModule,
+    CreditsModule,
     AdaptersModule,
     LangChainModule,
     RestModule,
