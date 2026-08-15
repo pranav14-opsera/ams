@@ -49,7 +49,7 @@ test("denies with a structured 403 when the required permission is absent from t
     () => guard.canActivate(context),
     (err: any) => {
       const body = err.getResponse();
-      assert.equal(body.error, "FORBIDDEN");
+      assert.equal(body.error, "forbidden");
       assert.equal(body.required_permission, "agent_management:agent:delete");
       assert.ok(body.request_id);
       return true;
@@ -68,7 +68,7 @@ test("deny-by-default: a route with no @RequirePermission and no @NoPermissionRe
   await assert.rejects(
     () => guard.canActivate(context),
     (err: any) => {
-      assert.equal(err.getResponse().error, "FORBIDDEN");
+      assert.equal(err.getResponse().error, "forbidden");
       return true;
     },
   );
@@ -121,7 +121,7 @@ test("team-scoped role (team_lead) accessing ANOTHER team's resource is denied (
   await assert.rejects(
     () => guard.canActivate(context),
     (err: any) => {
-      assert.equal(err.getResponse().error, "FORBIDDEN");
+      assert.equal(err.getResponse().error, "forbidden");
       return true;
     },
   );

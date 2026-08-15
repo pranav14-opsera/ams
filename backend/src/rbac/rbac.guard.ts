@@ -1,8 +1,9 @@
 import { CanActivate, ExecutionContext, ForbiddenException, Inject, Injectable, Logger } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
-import { randomUUID } from "node:crypto";
 import type { Request } from "express";
 import { DataClassification } from "../classification/data-classification.enum";
+import { ErrorCode } from "../shared/errors/error-codes.enum";
+import { getRequestId } from "../shared/errors/request-id";
 import { AUDIT_SERVICE, type AuditServicePort } from "../tenants/ports/audit-service.port";
 import { NO_PERMISSION_REQUIRED_KEY } from "./no-permission-required.decorator";
 import { REQUIRE_PERMISSION_KEY } from "./require-permission.decorator";
@@ -13,7 +14,7 @@ const TEAM_SCOPED_ROLES = ["team_lead", "agent_operator"];
 
 /** Carried on a denial's ForbiddenException response so RbacForbiddenExceptionFilter can recognize and enrich it — other guards' ForbiddenExceptions (e.g. MfaStepUpGuard's MFA_REQUIRED) are left untouched by that filter. */
 export interface RbacDenialResponse {
-  error: "FORBIDDEN";
+  error: ErrorCode.FORBIDDEN;
   message: string;
   required_permission: string;
   request_id: string;
@@ -77,7 +78,7 @@ export class RbacGuard implements CanActivate {
   }
 
   private async deny(req: Request, requiredPermission: string, denialReason: string): Promise<never> {
-    const requestId = randomUUID();
+    const requestId = getRequestId(req);
 
     await this.auditService
       .recordEvent({
@@ -99,7 +100,7 @@ export class RbacGuard implements CanActivate {
       .catch((err) => this.logger.error(`failed to record rbac.access_denied audit event: ${err instanceof Error ? err.message : err}`));
 
     const response: RbacDenialResponse = {
-      error: "FORBIDDEN",
+      error: ErrorCode.FORBIDDEN,
       message: `Permission ${requiredPermission} required.`,
       required_permission: requiredPermission,
       request_id: requestId,

@@ -1,15 +1,16 @@
 import { ArgumentsHost, Catch, ExceptionFilter, ForbiddenException } from "@nestjs/common";
 import type { Response } from "express";
+import { ErrorCode } from "../shared/errors/error-codes.enum";
 import { RbacMatrixCacheService } from "./rbac-matrix-cache.service";
 import type { RbacDenialResponse } from "./rbac.guard";
 
 function isRbacDenial(body: unknown): body is RbacDenialResponse {
-  return typeof body === "object" && body !== null && (body as any).error === "FORBIDDEN" && typeof (body as any).required_permission === "string";
+  return typeof body === "object" && body !== null && (body as any).error === ErrorCode.FORBIDDEN && typeof (body as any).required_permission === "string";
 }
 
 /**
  * Catches every ForbiddenException app-wide, but only reformats the ones
- * RbacGuard itself threw (recognized by its {error: "FORBIDDEN",
+ * RbacGuard itself threw (recognized by its {error: "forbidden",
  * required_permission, request_id} shape) — enriching them with
  * granting_roles per this WO's acceptance criteria. Any OTHER
  * ForbiddenException (e.g. MfaStepUpGuard's {error: "MFA_REQUIRED", ...},
