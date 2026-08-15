@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
+import { axe } from "vitest-axe";
 import { Button } from "./button";
 
 describe("Button", () => {
@@ -28,5 +29,16 @@ describe("Button", () => {
 
     await userEvent.click(button);
     expect(onClick).not.toHaveBeenCalled();
+  });
+
+  it("has no axe-core accessibility violations", async () => {
+    const { container } = render(<Button>Get started</Button>);
+    // color-contrast needs a real canvas 2D context to sample rendered
+    // pixels — jsdom doesn't implement one. The E2E axe-core scan
+    // (npm run a11y:scan, a real browser via Playwright) is what actually
+    // exercises color-contrast; this unit-level check covers everything
+    // else (roles, labels, ARIA attributes) on the component in isolation.
+    const results = await axe(container, { rules: { "color-contrast": { enabled: false } } });
+    expect(results).toHaveNoViolations();
   });
 });
