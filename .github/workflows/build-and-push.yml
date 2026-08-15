@@ -46,6 +46,22 @@ jobs:
         working-directory: ${{ matrix.service }}
         run: npm run typecheck
 
+      # WO-050: frontend-only — ESLint/jsx-a11y and Vitest unit tests need
+      # no external services (unlike backend's real-Postgres suite, which
+      # already runs in its own dedicated backend-checks.yml with a
+      # Postgres service container this shared build/push job doesn't
+      # have; running backend's `npm test` here would just fail on a
+      # missing database, not add real coverage).
+      - name: Lint
+        if: matrix.service == 'frontend'
+        working-directory: frontend
+        run: npm run lint
+
+      - name: Unit tests
+        if: matrix.service == 'frontend'
+        working-directory: frontend
+        run: npm test
+
       - name: Build
         working-directory: ${{ matrix.service }}
         run: npm run build

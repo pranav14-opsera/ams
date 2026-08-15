@@ -1,7 +1,7 @@
 import { readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
-const APP_DIR = join(__dirname, "..", "..", "app");
+const APP_DIR = join(__dirname, "..", "..", "src", "app");
 
 // Walks the Next.js app router tree and returns every static route that has
 // a page.tsx. Route groups `(name)` don't appear in the URL; dynamic

@@ -10,3 +10,12 @@
 set -euo pipefail
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 bash "$REPO_ROOT/scripts/build-checks/validate-commit.sh" --staged
+
+# WO-050: lint-staged over any staged frontend/ file, using frontend's own
+# node_modules (there is still no root package.json to hoist a shared
+# lint-staged instance into — same reasoning as the header comment above).
+if git diff --cached --name-only | grep -q '^frontend/'; then
+  if [ -x "$REPO_ROOT/frontend/node_modules/.bin/lint-staged" ]; then
+    (cd "$REPO_ROOT/frontend" && npx lint-staged)
+  fi
+fi
