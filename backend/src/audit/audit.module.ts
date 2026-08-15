@@ -1,8 +1,12 @@
 import { Module } from "@nestjs/common";
-import { AuditStoreRepository } from "./audit-store.repository";
+import { AuditEventsModule } from "./events/audit-events.module";
 
+// AuditStoreRepository is provided by (and exported through)
+// AuditEventsModule, which owns the full write/enrichment/PHI-scrub
+// pipeline that uses it — a single shared instance, not a duplicate one
+// per module.
 @Module({
-  providers: [AuditStoreRepository],
-  exports: [AuditStoreRepository],
+  imports: [AuditEventsModule],
+  exports: [AuditEventsModule],
 })
 export class AuditModule {}
