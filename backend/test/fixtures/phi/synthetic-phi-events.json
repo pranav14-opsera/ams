@@ -1,0 +1,36 @@
+{
+  "_comment": "WO-043 AC: synthetic PHI test fixtures using obviously fake data — never real PHI. Each entry is a full canonical telemetry event metadata blob exercised through the classification+scrub+secondary-validation pipeline.",
+  "events": [
+    {
+      "name": "ssn",
+      "metadata": { "patient_name": "Jane Doe", "note": "SSN on file: 000-00-0000" }
+    },
+    {
+      "name": "mrn",
+      "metadata": { "mrn": "TEST-MRN-12345", "note": "routine follow-up" }
+    },
+    {
+      "name": "dob",
+      "metadata": { "date_of_birth": "1900-01-01", "note": "confirmed identity" }
+    },
+    {
+      "name": "icd10",
+      "metadata": { "diagnosis_code": "Z00.00", "note": "annual wellness visit" }
+    },
+    {
+      "name": "email",
+      "metadata": { "email": "test@example.com", "note": "appointment reminder sent" }
+    },
+    {
+      "name": "phone",
+      "metadata": { "phone_number": "000-000-0000", "note": "left voicemail" }
+    },
+    {
+      "name": "nested_and_embedded",
+      "metadata": {
+        "encounter": { "patient_id": "SYNTH-001", "notes": "patient reported SSN 000-00-0000 for verification" },
+        "tags": ["routine", "1900-01-01"]
+      }
+    }
+  ]
+}

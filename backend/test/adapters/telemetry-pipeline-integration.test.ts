@@ -18,7 +18,10 @@ import { AgentsService } from "../../src/agents/agents.service";
 import { ClassificationRuleEngine } from "../../src/classification/classification-rule-engine";
 import { DataClassificationTagger } from "../../src/classification/data-classification-tagger";
 import { EncryptionService } from "../../src/encryption/encryption.service";
+import { PhiAuditEmitter } from "../../src/phi-scrubber/phi-audit-emitter";
+import { PhiQuarantineRepository } from "../../src/phi-scrubber/phi-quarantine.repository";
 import { PhiScrubberService } from "../../src/phi-scrubber/phi-scrubber.service";
+import { PhiSecondaryValidator } from "../../src/phi-scrubber/phi-secondary-validator";
 import { MetricsAggregatorRepository } from "../../src/adapters/metrics/metrics-aggregator.repository";
 import { MetricsAggregatorService } from "../../src/adapters/metrics/metrics-aggregator.service";
 import { InMemoryKmsService } from "../../src/tenants/ports/in-memory/in-memory-kms.service";
@@ -40,6 +43,7 @@ async function cleanupTenant(pool: Pool, slug: string): Promise<void> {
   if (tenant.rows.length === 0) return;
   const tenantId = tenant.rows[0].id;
   await pool.query("DELETE FROM telemetry_dead_letter_events WHERE tenant_id = $1", [tenantId]);
+  await pool.query("DELETE FROM phi_quarantine_events WHERE tenant_id = $1", [tenantId]);
   await pool.query("DELETE FROM audit_events WHERE tenant_id = $1", [tenantId]);
   await pool.query("DELETE FROM agents WHERE tenant_id = $1", [tenantId]);
   await pool.query("DELETE FROM rbac_policies WHERE tenant_id = $1", [tenantId]);
@@ -102,11 +106,26 @@ async function buildRig(pool: Pool) {
   const kafkaProducer = new KafkaTelemetryProducerService();
   const deadLetterRepository = new TelemetryDeadLetterRepository(pool);
   const metricsAggregator = new MetricsAggregatorService(new MetricsAggregatorRepository(pool));
-  const pipeline = new TelemetryPipelineService(pool, schemaValidator, tenantRepository, tagger, phiScrubber, kafkaProducer, deadLetterRepository, metricsAggregator);
+  const phiSecondaryValidator = new PhiSecondaryValidator(phiScrubber);
+  const phiAuditEmitter = new PhiAuditEmitter(audit);
+  const phiQuarantineRepository = new PhiQuarantineRepository(pool);
+  const pipeline = new TelemetryPipelineService(
+    pool,
+    schemaValidator,
+    tenantRepository,
+    tagger,
+    phiScrubber,
+    kafkaProducer,
+    deadLetterRepository,
+    metricsAggregator,
+    phiSecondaryValidator,
+    phiAuditEmitter,
+    phiQuarantineRepository,
+  );
 
   const registry = new AdapterRegistryService();
   registry.register("generic_rest", new ReferenceTestAdapter());
-  const controller = new AdaptersController(registry, pipeline);
+  const controller = new AdaptersController(registry, pipeline, pool);
 
   return { saga, agentsService, hmacMiddleware, controller, deadLetterRepository, kafkaProducer };
 }
@@ -167,6 +186,24 @@ test("full pipeline: HMAC validation -> schema validation -> enrichment -> PHI s
     const storedPayload = rawRow.rows[0].payload;
     assert.notEqual(storedPayload.metadata.patient_ssn, "123-45-6789", "PHI must be scrubbed before it's even written to the dead-letter table");
     assert.equal(storedPayload.metadata.note, "routine check-in");
+
+    // WO-043: the SSN detection must have produced an immutable audit_events
+    // record — this only works now that AdaptersController establishes
+    // app.current_tenant before calling the pipeline (a real bug found via
+    // testing: audit_events' RLS policy rejects an INSERT with no tenant
+    // context set at all, rather than silently doing nothing).
+    const auditRows = await pool.query(
+      "SELECT action, resource_type, resource_id, details, data_classification FROM audit_events WHERE tenant_id = $1 AND action = 'phi_detected'",
+      [tenant.id],
+    );
+    assert.equal(auditRows.rows.length, 1);
+    assert.equal(auditRows.rows[0].resource_type, "telemetry_event");
+    assert.equal(auditRows.rows[0].resource_id, rawEvent.event_id);
+    // "patient_ssn"'s underscore means \bssn\b (a field-NAME pattern) never
+    // matches — the SSN VALUE itself ("123-45-6789") is what the value-shape
+    // pattern catches, regardless of the field being named "patient_ssn".
+    assert.equal(auditRows.rows[0].details.reason, "value_shape");
+    assert.match(auditRows.rows[0].details.field_path, /ssn/);
   } finally {
     await cleanupTenant(pool, slug);
     await pool.end();

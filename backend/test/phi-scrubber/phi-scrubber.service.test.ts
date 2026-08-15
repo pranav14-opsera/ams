@@ -17,6 +17,34 @@ test("masks values matching a PHI shape (SSN/DOB) regardless of field name", () 
   }
 });
 
+test("WO-043: masks ICD-10 diagnosis codes regardless of field name", () => {
+  const scrubber = new PhiScrubberService();
+  for (const { input, expected } of fixtures.icd10_matches) {
+    assert.deepEqual(scrubber.scrub(input), expected, JSON.stringify(input));
+  }
+});
+
+test("WO-043: masks email addresses", () => {
+  const scrubber = new PhiScrubberService();
+  for (const { input, expected } of fixtures.email_matches) {
+    assert.deepEqual(scrubber.scrub(input), expected, JSON.stringify(input));
+  }
+});
+
+test("WO-043: masks phone numbers", () => {
+  const scrubber = new PhiScrubberService();
+  for (const { input, expected } of fixtures.phone_matches) {
+    assert.deepEqual(scrubber.scrub(input), expected, JSON.stringify(input));
+  }
+});
+
+test("WO-043: non-PHI values that superficially resemble a pattern are NOT masked (negative matches)", () => {
+  const scrubber = new PhiScrubberService();
+  for (const { input, expected, case: caseName } of fixtures.non_phi_negative_matches) {
+    assert.deepEqual(scrubber.scrub(input), expected, caseName);
+  }
+});
+
 test("non-PHI payloads pass through completely unchanged", () => {
   const scrubber = new PhiScrubberService();
   for (const { input, expected } of fixtures.non_phi_passes_through_unchanged) {
@@ -87,6 +115,34 @@ test("an invalid tenant override regex is skipped without breaking scrubbing for
   const tenantSettings = { phiFieldNamePatterns: ["(unclosed", "insured_party_id"] };
   const result = scrubber.scrub({ insured_party_id: "IP-9999" }, tenantSettings);
   assert.deepEqual(result, { insured_party_id: "[MASKED]" });
+});
+
+test("WO-043: scrubWithDetections returns the same masked output as scrub(), plus a detection per masked field", () => {
+  const scrubber = new PhiScrubberService();
+  const { result, detections } = scrubber.scrubWithDetections({ ssn: "123-45-6789", note: "call back tomorrow" });
+
+  assert.deepEqual(result, { ssn: "[MASKED]", note: "call back tomorrow" });
+  assert.equal(detections.length, 1);
+  assert.equal(detections[0].fieldPath, "$.ssn");
+  assert.equal(detections[0].reason, "field_name");
+});
+
+test("WO-043: scrubWithDetections reports value-shape detections with the field's own path, and nested/array paths", () => {
+  const scrubber = new PhiScrubberService();
+  const { detections } = scrubber.scrubWithDetections({
+    encounter: { note: "123-45-6789" },
+    tags: ["fine", "1990-01-01"],
+  });
+
+  const paths = detections.map((d) => d.fieldPath).sort();
+  assert.deepEqual(paths, ["$.encounter.note", "$.tags[1]"]);
+  assert.ok(detections.every((d) => d.reason === "value_shape"));
+});
+
+test("WO-043: scrubWithDetections returns zero detections for a payload with no PHI", () => {
+  const scrubber = new PhiScrubberService();
+  const { detections } = scrubber.scrubWithDetections({ agent_name: "billing-agent", framework: "langchain" });
+  assert.equal(detections.length, 0);
 });
 
 test("deeply nested structures beyond normal depth still terminate (no infinite recursion)", () => {

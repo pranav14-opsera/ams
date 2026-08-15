@@ -65,6 +65,13 @@ rules:
         # tenant-less agent lookup that resolves the tenant in the first
         # place, same structural reason as the SCIM entries above.
         - backend/src/agents/agents.repository.ts
+        # WO-043: AdaptersController establishes app.current_tenant itself
+        # (BEGIN/set_config/COMMIT) before calling the telemetry pipeline,
+        # the same set_config plumbing tenant-context.middleware.ts and
+        # scim-auth.guard.ts are already excluded for above — this is
+        # session/transaction setup, not a query against a tenant-scoped
+        # application table.
+        - backend/src/adapters/adapters.controller.ts
     metadata:
       category: security
       references:

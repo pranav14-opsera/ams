@@ -2,7 +2,10 @@ import { BadRequestException, Inject, Injectable, Logger } from "@nestjs/common"
 import type { Pool, PoolClient } from "pg";
 import { PG_POOL } from "../../common/database/database.module";
 import { DataClassificationTagger } from "../../classification/data-classification-tagger";
-import { PhiScrubberService } from "../../phi-scrubber/phi-scrubber.service";
+import { PhiAuditEmitter } from "../../phi-scrubber/phi-audit-emitter";
+import { PhiQuarantineRepository } from "../../phi-scrubber/phi-quarantine.repository";
+import { PhiScrubberService, type PhiDetection } from "../../phi-scrubber/phi-scrubber.service";
+import { PhiSecondaryValidator } from "../../phi-scrubber/phi-secondary-validator";
 import { TenantRepository } from "../../tenants/tenant.repository";
 import { TELEMETRY_PUBLISHER, type TelemetryPublisherPort } from "../kafka/telemetry-publisher.port";
 import { TelemetryDeadLetterRepository } from "../kafka/telemetry-dead-letter.repository";
@@ -15,12 +18,15 @@ export interface TelemetryPipelineResult {
   eventId: string;
   dataClassification: string;
   deadLettered: boolean;
+  /** WO-043: true if PhiSecondaryValidator found residual PHI (or primary scrubbing itself threw) and the event was routed to phi_quarantine_events instead of Kafka. */
+  quarantined: boolean;
 }
 
 /**
  * Orchestrates: JSON Schema validation -> tenant context enrichment ->
- * data classification tagging -> PHI scrubbing -> Kafka publication
- * (this WO's own acceptance criteria, in exactly this order).
+ * data classification tagging -> PHI scrubbing -> secondary PHI validation
+ * (WO-043 defense-in-depth quarantine gate) -> Kafka publication (this
+ * WO's own acceptance criteria, in exactly this order).
  *
  * PHI scrubbing is applied directly to `metadata` — the canonical
  * schema's ONE free-form field (every other field is strictly typed:
@@ -39,6 +45,15 @@ export interface TelemetryPipelineResult {
  * injected into the canonical wire payload, whose schema has no slot
  * for it) and WO-017's PhiScrubberService for the actual masking, rather
  * than re-implementing either.
+ *
+ * WO-043 adds two things on top of WO-017's two-pass scrub: (1) every
+ * masked field produces an immutable audit_events record via
+ * PhiAuditEmitter, and (2) PhiSecondaryValidator re-scans the ALREADY-
+ * scrubbed output — if it still finds PHI-shaped content (or primary
+ * scrubbing itself throws for any reason), the event is quarantined to
+ * phi_quarantine_events instead of ever reaching Kafka. "Never fail
+ * open" is structural here: quarantining is what the catch block does,
+ * not an afterthought bolted onto the happy path.
  */
 @Injectable()
 export class TelemetryPipelineService {
@@ -53,6 +68,9 @@ export class TelemetryPipelineService {
     @Inject(TELEMETRY_PUBLISHER) private readonly publisher: TelemetryPublisherPort,
     private readonly deadLetterRepository: TelemetryDeadLetterRepository,
     private readonly metricsAggregator: MetricsAggregatorService,
+    private readonly phiSecondaryValidator: PhiSecondaryValidator,
+    private readonly phiAuditEmitter: PhiAuditEmitter,
+    private readonly phiQuarantineRepository: PhiQuarantineRepository,
   ) {}
 
   async process(client: Pool | PoolClient | undefined, event: CanonicalTelemetryEvent): Promise<TelemetryPipelineResult> {
@@ -74,20 +92,39 @@ export class TelemetryPipelineService {
       fields: event as unknown as Record<string, unknown>,
     });
 
-    // Two passes, deliberately: scrub() masks by field NAME (e.g. a
-    // `patient_ssn` key, regardless of its value's shape) and by an
-    // EXACT whole-value match (a field whose entire value is exactly
-    // "123-45-6789"). Neither catches a PHI-shaped value embedded inside
-    // a longer free-text string — e.g. a LangChain error message like
-    // "rate limit exceeded for patient SSN 123-45-6789" — which is
-    // exactly the shape adapter-supplied `metadata.error` content tends
-    // to take (found via testing the LangChain adapter's on_llm_error
-    // mapping). scrubText() does substring-level masking, so the second
-    // pass runs it over the JSON-serialized, already-field-scrubbed
-    // metadata to catch those embedded values too.
-    const fieldScrubbedMetadata = this.phiScrubber.scrub(event.metadata, tenant?.settings ?? null) as Record<string, unknown>;
-    const scrubbedMetadata = JSON.parse(this.phiScrubber.scrubText(JSON.stringify(fieldScrubbedMetadata), tenant?.settings ?? null)) as Record<string, unknown>;
+    // WO-043: never fail open. Any exception during scrubbing/validation
+    // itself (not a Kafka publish failure — that's handled separately
+    // below) means we cannot prove the event is PHI-safe, so it is
+    // quarantined rather than published in whatever state it was in when
+    // the exception occurred.
+    let scrubbedMetadata: Record<string, unknown>;
+    let detections: PhiDetection[];
+    try {
+      const result = this.scrubMetadata(event.metadata, tenant?.settings ?? null);
+      scrubbedMetadata = result.scrubbedMetadata;
+      detections = result.detections;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unknown PHI scrubbing error";
+      this.logger.error(`telemetry event ${event.event_id} failed PHI scrubbing, quarantining rather than publishing unscrubbed: ${message}`);
+      await this.phiQuarantineRepository.record(client, event, `PHI scrubbing error: ${message}`);
+      return { accepted: true, eventId: event.event_id, dataClassification: tagged.data_classification, deadLettered: false, quarantined: true };
+    }
+
+    if (detections.length > 0) {
+      await this.phiAuditEmitter.recordDetections(client as PoolClient | undefined, event.tenant_id, event.agent_id, event.event_id, tagged.data_classification, detections);
+    }
+
     const outboundEvent: CanonicalTelemetryEvent = { ...event, metadata: scrubbedMetadata };
+
+    // Defense-in-depth quarantine gate: re-scan the ALREADY-scrubbed
+    // output. If PHI-shaped content survived the primary pass, this event
+    // must never reach Kafka.
+    if (this.phiSecondaryValidator.hasResidualPhi(scrubbedMetadata, tenant?.settings ?? null)) {
+      this.logger.error(`telemetry event ${event.event_id} failed secondary PHI validation after primary scrubbing — quarantining instead of publishing`);
+      await this.phiQuarantineRepository.record(client, outboundEvent, "Secondary PHI validation detected residual PHI-shaped content after primary scrubbing.");
+      await this.metricsAggregator.recordCanonicalEvent(client, outboundEvent);
+      return { accepted: true, eventId: event.event_id, dataClassification: tagged.data_classification, deadLettered: false, quarantined: true };
+    }
 
     let deadLettered = false;
     try {
@@ -105,6 +142,28 @@ export class TelemetryPipelineService {
     // not about delivery status.
     await this.metricsAggregator.recordCanonicalEvent(client, outboundEvent);
 
-    return { accepted: true, eventId: event.event_id, dataClassification: tagged.data_classification, deadLettered };
+    return { accepted: true, eventId: event.event_id, dataClassification: tagged.data_classification, deadLettered, quarantined: false };
+  }
+
+  /**
+   * WO-017's two-pass scrub (field/exact-value, then embedded-substring),
+   * combined into one call that also returns what was masked (for
+   * WO-043's audit trail). Split out of process() so the "never fail
+   * open" try/catch above has a single call site to guard.
+   */
+  private scrubMetadata(metadata: Record<string, unknown>, tenantSettings: Record<string, unknown> | null): { scrubbedMetadata: Record<string, unknown>; detections: PhiDetection[] } {
+    const { result: fieldScrubbedMetadata, detections: fieldDetections } = this.phiScrubber.scrubWithDetections(metadata, tenantSettings);
+
+    // scrubText() does substring-level masking over the JSON-serialized,
+    // already-field-scrubbed metadata to catch PHI embedded inside a
+    // longer free-text string (e.g. a LangChain error message like "rate
+    // limit exceeded for patient SSN 123-45-6789") that scrub()'s
+    // field-name/exact-whole-value matching alone would miss (WO-035).
+    const serializedFieldScrubbed = JSON.stringify(fieldScrubbedMetadata);
+    const serializedFullyScrubbed = this.phiScrubber.scrubText(serializedFieldScrubbed, tenantSettings);
+    const textPassDetections: PhiDetection[] =
+      serializedFullyScrubbed !== serializedFieldScrubbed ? [{ fieldPath: "metadata (embedded free text)", reason: "value_shape" }] : [];
+
+    return { scrubbedMetadata: JSON.parse(serializedFullyScrubbed) as Record<string, unknown>, detections: [...fieldDetections, ...textPassDetections] };
   }
 }

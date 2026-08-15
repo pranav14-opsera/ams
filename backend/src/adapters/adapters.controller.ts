@@ -1,5 +1,7 @@
-import { BadRequestException, Body, Controller, ForbiddenException, HttpCode, HttpStatus, NotFoundException, Param, Post, Req } from "@nestjs/common";
+import { BadRequestException, Body, Controller, ForbiddenException, HttpCode, HttpStatus, Inject, NotFoundException, Param, Post, Req } from "@nestjs/common";
 import type { Request } from "express";
+import type { Pool } from "pg";
+import { PG_POOL } from "../common/database/database.module";
 import { NoPermissionRequired } from "../rbac/no-permission-required.decorator";
 import { AdapterRegistryService } from "./adapter-registry.service";
 import type { IAgentAdapter } from "./interfaces/agent-adapter.interface";
@@ -35,6 +37,7 @@ export class AdaptersController {
   constructor(
     private readonly registry: AdapterRegistryService,
     private readonly pipeline: TelemetryPipelineService,
+    @Inject(PG_POOL) private readonly pool: Pool,
   ) {}
 
   // HmacValidationMiddleware (not RbacGuard) is the authentication gate
@@ -82,6 +85,29 @@ export class AdaptersController {
       throw new ForbiddenException("Telemetry event does not match the authenticated agent.");
     }
 
-    return this.pipeline.process(undefined, canonicalEvent);
+    // A telemetry request arrives via HmacValidationMiddleware, which
+    // deliberately runs OUTSIDE TenantContextMiddleware (no user JWT to
+    // derive tenant context from) — so app.current_tenant is never set by
+    // the time a request reaches here. Every downstream write the pipeline
+    // makes (dead-letter, metrics, and WO-043's PHI audit trail/quarantine)
+    // targets an RLS-protected, tenant-scoped table, so this establishes
+    // that context itself, the same BEGIN/set_config/COMMIT shape
+    // TenantContextMiddleware uses for a normal authenticated request.
+    // Found via testing: without this, any of those downstream writes
+    // fails outright with "new row violates row-level security policy"
+    // rather than silently succeeding or silently doing nothing.
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query("SELECT set_config('app.current_tenant', $1, true)", [canonicalEvent.tenant_id]);
+      const result = await this.pipeline.process(client, canonicalEvent);
+      await client.query("COMMIT");
+      return result;
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
+    }
   }
 }

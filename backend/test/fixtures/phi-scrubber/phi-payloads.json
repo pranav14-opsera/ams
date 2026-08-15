@@ -13,6 +13,23 @@
     { "input": { "note": "123-45-6789" }, "expected": { "note": "[MASKED]" } },
     { "input": { "misc_field": "1990-01-01" }, "expected": { "misc_field": "[MASKED]" } }
   ],
+  "icd10_matches": [
+    { "input": { "code": "Z00.00" }, "expected": { "code": "[MASKED]" } },
+    { "input": { "code": "E11.9" }, "expected": { "code": "[MASKED]" } },
+    { "input": { "code": "S72.001A" }, "expected": { "code": "[MASKED]" } }
+  ],
+  "email_matches": [
+    { "input": { "contact": "jane.doe@example.com" }, "expected": { "contact": "[MASKED]" } }
+  ],
+  "phone_matches": [
+    { "input": { "number": "(555) 123-4567" }, "expected": { "number": "[MASKED]" } },
+    { "input": { "number": "555-123-4567" }, "expected": { "number": "[MASKED]" } }
+  ],
+  "non_phi_negative_matches": [
+    { "case": "a version string doesn't match ICD-10 shape", "input": { "adapter_version": "1.0.0" }, "expected": { "adapter_version": "1.0.0" } },
+    { "case": "a bare word doesn't match email shape", "input": { "framework": "langchain" }, "expected": { "framework": "langchain" } },
+    { "case": "a short numeric id doesn't match phone/MRN shape", "input": { "count": "42" }, "expected": { "count": "42" } }
+  ],
   "non_phi_passes_through_unchanged": [
     { "input": { "agent_name": "billing-agent", "framework": "langchain" }, "expected": { "agent_name": "billing-agent", "framework": "langchain" } },
     { "input": { "amount": 42.5, "currency": "usd" }, "expected": { "amount": 42.5, "currency": "usd" } }
