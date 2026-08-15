@@ -63,26 +63,16 @@ function NavigationTree({
  * feature page plugs into this navigation structure"). Desktop
  * (>=768px) renders a persistent, collapsible-to-icon-only left panel;
  * mobile (<768px) renders the same tree inside MobileDrawer, triggered by
- * a hamburger button. The skip-to-content link is deliberately the very
- * first focusable element in the DOM (AC's own "as the first focusable
- * element" requirement) — it must render before the nav, not inside it.
+ * a hamburger button. The skip-to-content link (WO-053's own
+ * SkipToContent) now renders at the true root of <body>, before any
+ * provider — it no longer needs to live here to be "first."
  */
 export function Sidebar() {
   const { isMobile, collapsed, setCollapsed, expandedGroups, toggleGroup, mobileDrawerOpen, openMobileDrawer, closeMobileDrawer } = useSidebarState();
 
-  const skipLink = (
-    <a
-      href="#main-content"
-      className="focus:bg-primary focus:text-primary-foreground sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:px-3 focus:py-2"
-    >
-      Skip to content
-    </a>
-  );
-
   if (isMobile) {
     return (
       <>
-        {skipLink}
         <div className="m-2 flex items-center gap-1">
           <Button variant="ghost" size="sm" aria-label="Open navigation" onClick={openMobileDrawer}>
             <Menu aria-hidden="true" className="size-5" />
@@ -97,23 +87,20 @@ export function Sidebar() {
   }
 
   return (
-    <>
-      {skipLink}
-      <aside aria-label="Sidebar" className={collapsed ? "border-border w-16 shrink-0 border-r p-2" : "border-border w-64 shrink-0 border-r p-4"}>
-        <div className={collapsed ? "mb-2 flex flex-col gap-1" : "mb-2 flex items-center gap-1"}>
-          <Button
-            variant="ghost"
-            size="sm"
-            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            onClick={() => setCollapsed(!collapsed)}
-            className={collapsed ? "w-full justify-start" : "flex-1 justify-start"}
-          >
-            {collapsed ? <PanelLeftOpen aria-hidden="true" className="size-4" /> : <PanelLeftClose aria-hidden="true" className="size-4" />}
-          </Button>
-          <ThemeToggle />
-        </div>
-        <NavigationTree collapsed={collapsed} expandedGroups={expandedGroups} onToggleGroup={toggleGroup} />
-      </aside>
-    </>
+    <aside aria-label="Sidebar" className={collapsed ? "border-border w-16 shrink-0 border-r p-2" : "border-border w-64 shrink-0 border-r p-4"}>
+      <div className={collapsed ? "mb-2 flex flex-col gap-1" : "mb-2 flex items-center gap-1"}>
+        <Button
+          variant="ghost"
+          size="sm"
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          onClick={() => setCollapsed(!collapsed)}
+          className={collapsed ? "w-full justify-start" : "flex-1 justify-start"}
+        >
+          {collapsed ? <PanelLeftOpen aria-hidden="true" className="size-4" /> : <PanelLeftClose aria-hidden="true" className="size-4" />}
+        </Button>
+        <ThemeToggle />
+      </div>
+      <NavigationTree collapsed={collapsed} expandedGroups={expandedGroups} onToggleGroup={toggleGroup} />
+    </aside>
   );
 }

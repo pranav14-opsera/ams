@@ -115,3 +115,37 @@ body {
     height: 0;
   }
 }
+
+/* WO-053: prefers-reduced-motion — every transition/animation collapses
+   to (near-)instant. Not literally 0ms: some browsers/testing tools
+   treat a 0ms transition as "no transition ran" and skip firing
+   transitionend, which real code sometimes depends on; 0.01ms is
+   imperceptible to a human but still fires the event. !important is
+   deliberate here — this is a user override of AUTHORED animations
+   throughout the app, the one class of rule !important exists for. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* WO-053: forced-colors (Windows High Contrast Mode) — the OS substitutes
+   its own high-contrast palette for every color the page specifies, but
+   does NOT touch outline/border styles on its own. An outline: none (or
+   a focus ring implemented purely via box-shadow, which forced-colors
+   also ignores) would leave keyboard users with literally no visible
+   focus indicator in this mode. Forcing a real outline here means every
+   focusable element keeps a system-color, forced-colors-visible ring
+   regardless of whatever Tailwind focus-visible: classes an individual
+   component uses. */
+@media (forced-colors: active) {
+  :focus-visible {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+  }
+}
