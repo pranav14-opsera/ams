@@ -5,6 +5,7 @@ import { join } from "node:path";
 import type { ExecutionContext } from "@nestjs/common";
 import { RbacGuard } from "../../src/rbac/rbac.guard";
 import { NO_PERMISSION_REQUIRED_KEY } from "../../src/rbac/no-permission-required.decorator";
+import { REQUIRE_ANY_PERMISSION_KEY } from "../../src/rbac/require-any-permission.decorator";
 import { REQUIRE_PERMISSION_KEY } from "../../src/rbac/require-permission.decorator";
 import { RESOURCE_TEAM_PARAM_KEY } from "../../src/rbac/resource-team-param.decorator";
 
@@ -57,6 +58,40 @@ test("denies with a structured 403 when the required permission is absent from t
   );
   assert.equal(audit.events.length, 1);
   assert.equal(audit.events[0].action, "rbac.access_denied");
+  assert.equal(audit.events[0].details.denialReason, "insufficient_permission");
+});
+
+test("WO-047: @RequireAnyPermission allows a caller holding ONLY the second listed permission", async () => {
+  const audit = fakeAuditService();
+  const guard = new RbacGuard(fakeReflector({ [REQUIRE_ANY_PERMISSION_KEY]: ["audit_access:logs:view_org", "audit_access:logs:view_team"] }), fakeTeamMembershipRepository({}), audit.service);
+  const context = fakeContext({ tenantId: "t1", actorId: "u1", roles: ["team_lead"], permissions: ["audit_access:logs:view_team"] });
+
+  assert.equal(await guard.canActivate(context), true);
+});
+
+test("WO-047: @RequireAnyPermission allows a caller holding ONLY the first listed permission", async () => {
+  const audit = fakeAuditService();
+  const guard = new RbacGuard(fakeReflector({ [REQUIRE_ANY_PERMISSION_KEY]: ["audit_access:logs:view_org", "audit_access:logs:view_team"] }), fakeTeamMembershipRepository({}), audit.service);
+  const context = fakeContext({ tenantId: "t1", actorId: "u1", roles: ["compliance_officer"], permissions: ["audit_access:logs:view_org"] });
+
+  assert.equal(await guard.canActivate(context), true);
+});
+
+test("WO-047: @RequireAnyPermission denies a caller holding NEITHER listed permission", async () => {
+  const audit = fakeAuditService();
+  const guard = new RbacGuard(fakeReflector({ [REQUIRE_ANY_PERMISSION_KEY]: ["audit_access:logs:view_org", "audit_access:logs:view_team"] }), fakeTeamMembershipRepository({}), audit.service);
+  const context = fakeContext({ tenantId: "t1", actorId: "u1", originalUrl: "/api/v1/audit/logs", method: "GET", roles: ["agent_operator"], permissions: ["agent_management:agent:trigger"] });
+
+  await assert.rejects(
+    () => guard.canActivate(context),
+    (err: any) => {
+      const body = err.getResponse();
+      assert.equal(body.error, "forbidden");
+      assert.match(body.required_permission, /view_org.*OR.*view_team/);
+      return true;
+    },
+  );
+  assert.equal(audit.events.length, 1);
   assert.equal(audit.events[0].details.denialReason, "insufficient_permission");
 });
 

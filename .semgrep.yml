@@ -72,6 +72,12 @@ rules:
         # session/transaction setup, not a query against a tenant-scoped
         # application table.
         - backend/src/adapters/adapters.controller.ts
+        # WO-047: AuditExportWorkerService runs OUTSIDE the HTTP request
+        # lifecycle (fire-and-forget background export processing), so it
+        # can't reuse req.tenantDbClient — it establishes its own
+        # app.current_tenant the same set_config way, same exclusion class
+        # as the entries above.
+        - backend/src/audit/export/audit-export-worker.service.ts
     metadata:
       category: security
       references:

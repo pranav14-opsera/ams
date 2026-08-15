@@ -174,6 +174,21 @@ test("WO-044: scrubEmbeddedText still masks PHI embedded in a free-text STRING f
   assert.ok(result.note.includes("[MASKED]"));
 });
 
+test("WO-047: a UUID identifier value can have part of itself masked by the embedded-text pass, since value patterns are substring-matched — callers must not put pure identifiers through scrubEmbeddedText if they need them to survive intact", () => {
+  // Not a bug fix — documents a real, found-via-testing characteristic
+  // of this pass: it's a substring-level scan (needed to catch PHI mid-
+  // sentence, WO-035), so ANY string, including a structured identifier
+  // that happens to contain a digit run shaped like an MRN/DOB pattern,
+  // can be partially masked. WO-047's audit-export worker hit this with
+  // a raw job_id UUID and fixed it by keeping identifiers OUT of a field
+  // that goes through this pass, rather than changing the scrubber
+  // itself (over-redaction is this codebase's documented safe default).
+  const scrubber = new PhiScrubberService();
+  const uuid = "92f5b2b5-6767-4d2c-bb17-648381e0e828";
+  const result = scrubber.scrubEmbeddedText({ id: uuid }) as { id: string };
+  assert.notEqual(result.id, uuid, "this UUID is EXPECTED to come back altered — that's the point of this regression test");
+});
+
 test("deeply nested structures beyond normal depth still terminate (no infinite recursion)", () => {
   const scrubber = new PhiScrubberService();
   let deep: any = { patient_id: "12345" };
