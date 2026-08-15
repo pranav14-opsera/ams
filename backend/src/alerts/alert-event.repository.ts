@@ -70,6 +70,13 @@ export class AlertEventRepository {
     return toDomain(result.rows[0]);
   }
 
+  /** WO-062: resolves an alert_event_id to its agent/metric for feedback submission — feedback is keyed off the alert, not a separately-supplied agent/metric pair, so this must exist first. */
+  async findById(client: Pool | PoolClient | undefined, tenantId: string, id: string): Promise<AlertEvent | null> {
+    const executor = client ?? this.pool;
+    const result = await executor.query<AlertEventRow>("SELECT * FROM alert_events WHERE tenant_id = $1 AND id = $2", [tenantId, id]);
+    return result.rows[0] ? toDomain(result.rows[0]) : null;
+  }
+
   /** Cooldown check: the most recent alert for this exact agent+metric, or null if none has ever fired. */
   async findMostRecent(client: Pool | PoolClient | undefined, tenantId: string, agentId: string, metricName: string): Promise<AlertEvent | null> {
     const executor = client ?? this.pool;

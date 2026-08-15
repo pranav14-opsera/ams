@@ -25,6 +25,13 @@ import { MetricSnapshotCacheService } from "./metric-snapshot-cache.service";
 import { EMAIL_PROVIDER } from "./ports/email-provider.port";
 import { InMemoryEmailProviderService } from "./ports/in-memory/in-memory-email-provider.service";
 import { SesEmailProviderService } from "./ports/ses-email-provider.service";
+import { AlertAutoTuneStateRepository } from "./suppression/alert-auto-tune-state.repository";
+import { AlertFeedbackController } from "./suppression/alert-feedback.controller";
+import { AlertFeedbackService } from "./suppression/alert-feedback.service";
+import { AlertSnoozeRepository } from "./suppression/alert-snooze.repository";
+import { AlertSuppressionService } from "./suppression/alert-suppression.service";
+import { AutoTuneSchedulerService } from "./suppression/auto-tune.scheduler.service";
+import { FalsePositiveFeedbackRepository } from "./suppression/false-positive-feedback.repository";
 import { ThresholdEvaluationSchedulerService } from "./threshold-evaluation-scheduler.service";
 import { ThresholdEvaluatorService } from "./threshold-evaluator.service";
 import { WebhookConfigRepository } from "./webhook-config.repository";
@@ -40,10 +47,16 @@ import { WebhookConfigRepository } from "./webhook-config.repository";
 // falling back.
 @Module({
   imports: [ScheduleModule.forRoot(), WebsocketGatewayModule, EncryptionModule, PhiScrubberModule],
-  controllers: [AlertThresholdController, AlertChannelConfigController],
+  controllers: [AlertThresholdController, AlertChannelConfigController, AlertFeedbackController],
   providers: [
     AlertThresholdRepository,
     AlertEventRepository,
+    FalsePositiveFeedbackRepository,
+    AlertSnoozeRepository,
+    AlertAutoTuneStateRepository,
+    AlertFeedbackService,
+    AlertSuppressionService,
+    AutoTuneSchedulerService,
     MetricSnapshotCacheService,
     HealthDashboardRepository,
     MetricsAggregatorRepository,

@@ -89,15 +89,102 @@ class FakeAlertDeliveryService {
   }
 }
 
+/** WO-062: stands in for AlertSuppressionService — the evaluator only ever needs these two reads. */
+class FakeSuppressionService {
+  public warningMultiplier = 1;
+  public suppressed = false;
+  async getWarningMultiplier() {
+    return this.warningMultiplier;
+  }
+  async isAlertSuppressed() {
+    return this.suppressed;
+  }
+}
+
 function buildRig() {
   const thresholdRepository = new FakeThresholdRepository();
   const eventRepository = new FakeEventRepository();
   const snapshotCache = new FakeSnapshotCache();
   const healthRepository = new FakeHealthRepository();
   const alertDeliveryService = new FakeAlertDeliveryService();
-  const evaluator = new ThresholdEvaluatorService(thresholdRepository as any, eventRepository as any, snapshotCache as any, healthRepository as any, alertDeliveryService as any);
-  return { thresholdRepository, eventRepository, snapshotCache, healthRepository, alertDeliveryService, evaluator };
+  const suppressionService = new FakeSuppressionService();
+  const evaluator = new ThresholdEvaluatorService(thresholdRepository as any, eventRepository as any, snapshotCache as any, healthRepository as any, alertDeliveryService as any, suppressionService as any);
+  return { thresholdRepository, eventRepository, snapshotCache, healthRepository, alertDeliveryService, suppressionService, evaluator };
 }
+
+test("WO-062: no suppressionService wired at all behaves exactly as before (no suppression, no auto-tuning)", async () => {
+  const thresholdRepository = new FakeThresholdRepository();
+  const eventRepository = new FakeEventRepository();
+  const snapshotCache = new FakeSnapshotCache();
+  const healthRepository = new FakeHealthRepository();
+  const alertDeliveryService = new FakeAlertDeliveryService();
+  const evaluator = new ThresholdEvaluatorService(thresholdRepository as any, eventRepository as any, snapshotCache as any, healthRepository as any, alertDeliveryService as any);
+  thresholdRepository.thresholds = [makeThreshold()];
+  healthRepository.rows = [makeHealthRow({ errorRateAvg: 0.04 })];
+  snapshotCache.snapshots.set("agent-1", { error_rate: 0.04 });
+
+  const events = await evaluator.evaluateTenant("tenant-a");
+  assert.equal(events.length, 1);
+});
+
+test("WO-062: an active snooze suppresses a warning-severity breach", async () => {
+  const { thresholdRepository, healthRepository, snapshotCache, suppressionService, evaluator } = buildRig();
+  thresholdRepository.thresholds = [makeThreshold()];
+  healthRepository.rows = [makeHealthRow({ errorRateAvg: 0.04 })];
+  snapshotCache.snapshots.set("agent-1", { error_rate: 0.04 });
+  suppressionService.suppressed = true;
+
+  const events = await evaluator.evaluateTenant("tenant-a");
+  assert.equal(events.length, 0);
+});
+
+test("WO-062: an active snooze ALSO suppresses a critical-severity breach — manual snooze is an explicit user action, unlike auto-tuning", async () => {
+  const { thresholdRepository, healthRepository, snapshotCache, suppressionService, evaluator } = buildRig();
+  thresholdRepository.thresholds = [makeThreshold()];
+  healthRepository.rows = [makeHealthRow({ errorRateAvg: 0.9 })];
+  snapshotCache.snapshots.set("agent-1", { error_rate: 0.9 });
+  suppressionService.suppressed = true;
+
+  const events = await evaluator.evaluateTenant("tenant-a");
+  assert.equal(events.length, 0);
+});
+
+test("WO-062: auto-tune's warning multiplier raises the effective warning threshold", async () => {
+  const { thresholdRepository, healthRepository, snapshotCache, suppressionService, evaluator } = buildRig();
+  thresholdRepository.thresholds = [makeThreshold({ warningThreshold: 0.03, criticalThreshold: 0.05 })];
+  healthRepository.rows = [makeHealthRow({ errorRateAvg: 0.04 })]; // originally a warning breach (> 0.03)
+  snapshotCache.snapshots.set("agent-1", { error_rate: 0.04 });
+  suppressionService.warningMultiplier = 2; // effective warning threshold is now 0.06 — 0.04 no longer breaches it
+
+  const events = await evaluator.evaluateTenant("tenant-a");
+  assert.equal(events.length, 0, "a value that only breached the ORIGINAL warning threshold should no longer alert once auto-tuned");
+});
+
+test("WO-062: auto-tune's warning multiplier NEVER widens the critical threshold — a genuine critical breach always still fires", async () => {
+  const { thresholdRepository, healthRepository, snapshotCache, suppressionService, evaluator } = buildRig();
+  thresholdRepository.thresholds = [makeThreshold({ warningThreshold: 0.03, criticalThreshold: 0.05 })];
+  healthRepository.rows = [makeHealthRow({ errorRateAvg: 0.9 })];
+  snapshotCache.snapshots.set("agent-1", { error_rate: 0.9 });
+  suppressionService.warningMultiplier = 2; // even at the 2x cap, criticalThreshold (0.05) is untouched — 0.9 is still far above it
+
+  const events = await evaluator.evaluateTenant("tenant-a");
+  assert.equal(events.length, 1);
+  assert.equal(events[0].severity, "critical");
+  assert.equal(events[0].thresholdValue, 0.05);
+});
+
+test("WO-062: the tuned warning threshold value is recorded on the alert event itself", async () => {
+  const { thresholdRepository, healthRepository, snapshotCache, suppressionService, evaluator } = buildRig();
+  thresholdRepository.thresholds = [makeThreshold({ warningThreshold: 0.03, criticalThreshold: 0.05 })];
+  healthRepository.rows = [makeHealthRow({ errorRateAvg: 0.048 })]; // above tuned warning (0.045) but below critical (0.05)
+  snapshotCache.snapshots.set("agent-1", { error_rate: 0.048 });
+  suppressionService.warningMultiplier = 1.5;
+
+  const events = await evaluator.evaluateTenant("tenant-a");
+  assert.equal(events.length, 1);
+  assert.equal(events[0].severity, "warning");
+  assert.equal(events[0].thresholdValue, 0.045);
+});
 
 test("a value below warning generates no alert", async () => {
   const { thresholdRepository, healthRepository, snapshotCache, evaluator } = buildRig();
