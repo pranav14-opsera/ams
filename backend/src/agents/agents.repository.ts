@@ -17,6 +17,11 @@ export interface AgentRow {
   connection_config_auth_tag: Buffer;
   connection_config_encrypted_dek: Buffer;
   connection_config_key_version: number;
+  hmac_secret_ciphertext: Buffer;
+  hmac_secret_iv: Buffer;
+  hmac_secret_auth_tag: Buffer;
+  hmac_secret_encrypted_dek: Buffer;
+  hmac_secret_key_version: number;
   metadata: Record<string, unknown>;
   version: number;
   created_by: string | null;
@@ -46,13 +51,15 @@ export class AgentsRepository {
     connectionConfig: EnvelopeCiphertext,
     metadata: Record<string, unknown>,
     createdBy: string | null,
+    hmacSecret: EnvelopeCiphertext,
   ): Promise<AgentRow> {
     const executor = client ?? this.pool;
     const result = await executor.query<AgentRow>(
       `INSERT INTO agents (
          tenant_id, team_id, name, framework, connection_config_ciphertext, connection_config_iv,
-         connection_config_auth_tag, connection_config_encrypted_dek, connection_config_key_version, metadata, created_by
-       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+         connection_config_auth_tag, connection_config_encrypted_dek, connection_config_key_version, metadata, created_by,
+         hmac_secret_ciphertext, hmac_secret_iv, hmac_secret_auth_tag, hmac_secret_encrypted_dek, hmac_secret_key_version
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
        RETURNING *`,
       [
         tenantId,
@@ -66,6 +73,11 @@ export class AgentsRepository {
         connectionConfig.keyVersion,
         metadata,
         createdBy,
+        hmacSecret.ciphertext,
+        hmacSecret.iv,
+        hmacSecret.authTag,
+        hmacSecret.encryptedDataKey,
+        hmacSecret.keyVersion,
       ],
     );
     return result.rows[0];
@@ -107,6 +119,19 @@ export class AgentsRepository {
   async findOne(client: Pool | PoolClient | undefined, tenantId: string, id: string): Promise<AgentRow | null> {
     const executor = client ?? this.pool;
     const result = await executor.query<AgentRow>("SELECT * FROM agents WHERE tenant_id = $1 AND id = $2", [tenantId, id]);
+    return result.rows[0] ?? null;
+  }
+
+  // semgrep: raw-sql-missing-tenant-filter allowlisted (.semgrep.yml) —
+  // deliberately tenant-less. HmacValidationMiddleware runs BEFORE tenant
+  // context exists for a telemetry request (the caller authenticates via
+  // a per-agent HMAC secret, not a tenant-scoped JWT); this is the one
+  // legitimate lookup that has to resolve an agent (and therefore its
+  // tenant) by id alone, same "necessarily tenant-less" class as
+  // scim-auth.guard.ts's token lookup.
+  async findByIdAcrossTenants(client: Pool | PoolClient | undefined, id: string): Promise<AgentRow | null> {
+    const executor = client ?? this.pool;
+    const result = await executor.query<AgentRow>("SELECT * FROM agents WHERE id = $1", [id]);
     return result.rows[0] ?? null;
   }
 
