@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { AdapterHealthModule } from "../adapters/health/adapter-health.module";
+import { AlertsModule } from "../alerts/alerts.module";
 import { EncryptionModule } from "../encryption/encryption.module";
 import { AUDIT_SERVICE } from "../tenants/ports/audit-service.port";
 import { PostgresAuditService } from "../tenants/ports/postgres/postgres-audit.service";
@@ -13,7 +14,7 @@ import { BulkLifecycleService } from "./bulk-lifecycle.service";
 import { LifecycleService } from "./lifecycle.service";
 
 @Module({
-  imports: [EncryptionModule, WebsocketGatewayModule, AdapterHealthModule],
+  imports: [EncryptionModule, WebsocketGatewayModule, AdapterHealthModule, AlertsModule],
   controllers: [AgentsController],
   providers: [
     AgentsRepository,

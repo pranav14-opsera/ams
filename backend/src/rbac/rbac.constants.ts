@@ -33,6 +33,7 @@ export enum FeatureArea {
   TENANT_CONFIGURATION = "tenant_configuration",
   DATA_RETENTION = "data_retention",
   REPORTING = "reporting",
+  ALERTING = "alerting",
 }
 
 export enum PermissionAction {
@@ -112,6 +113,8 @@ export enum PermissionName {
   REPORTING_CONSUMPTION_REPORT_GENERATE = "reporting:consumption_report:generate",
   REPORTING_TEAM_ALERT_CONFIGURE = "reporting:team_alert:configure",
   REPORTING_AUDIT_SUMMARY_EXPORT = "reporting:audit_summary:export",
+
+  ALERT_THRESHOLD_MANAGE = "alerting:threshold:manage",
 }
 
 export const ALL_PERMISSION_NAMES: PermissionName[] = Object.values(PermissionName);

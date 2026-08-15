@@ -71,6 +71,7 @@ document cannot silently drift from what's actually enforced.
 | reporting:consumption_report:generate | | | | ✓ | |
 | reporting:team_alert:configure | | ✓ | | | |
 | reporting:audit_summary:export | | | | | ✓ |
+| alerting:threshold:manage | ✓ | | | | |
 
 ## Documented scope exclusions (enforced by test)
 

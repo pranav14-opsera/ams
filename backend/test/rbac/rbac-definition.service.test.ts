@@ -181,12 +181,13 @@ test("getRoles returns all 5 roles each with a non-empty permissions array", { s
   }
 });
 
-test("getPermissions groups all permissions by feature area, covering all 8 areas", { skip }, async () => {
+test("getPermissions groups all permissions by feature area, covering all 9 areas", { skip }, async () => {
   const pool = new Pool({ connectionString: DATABASE_URL });
   const service = new RbacDefinitionService(pool);
   try {
     const grouped = await service.getPermissions();
-    assert.equal(grouped.length, 8);
+    // WO-059 added a 9th area ("alerting") alongside the original 8.
+    assert.equal(grouped.length, 9);
     const total = grouped.reduce((sum, g) => sum + g.permissions.length, 0);
     assert.equal(total, ALL_PERMISSION_NAMES.length);
   } finally {

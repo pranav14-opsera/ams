@@ -116,6 +116,15 @@ rules:
         # app.current_tenant the same set_config way, same exclusion class
         # as the entries above.
         - backend/src/audit/export/audit-export-worker.service.ts
+        # WO-059: findDistinctTenantIds is the ONE deliberately
+        # tenant-less query in this file — ThresholdEvaluationSchedulerService
+        # runs OUTSIDE any request/tenant context (a background 5s
+        # interval, not tied to one tenant), and this is exactly the
+        # query that discovers which tenants need a tick at all, same
+        # structural class as agents.repository.ts's own
+        # findByIdAcrossTenants above. Every other query in this file is
+        # tenant-scoped.
+        - backend/src/alerts/alert-threshold.repository.ts
     metadata:
       category: security
       references:
