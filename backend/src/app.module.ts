@@ -3,6 +3,7 @@ import { AuthModule } from "./auth/auth.module";
 import { SessionValidationMiddleware } from "./auth/session/session-validation.middleware";
 import { AdaptersModule } from "./adapters/adapters.module";
 import { HmacValidationMiddleware } from "./adapters/hmac-validation.middleware";
+import { LangChainModule } from "./adapters/langchain/langchain.module";
 import { ClassificationModule } from "./classification/classification.module";
 import { DatabaseModule } from "./common/database/database.module";
 import { TenantContextMiddleware } from "./common/tenant-context.middleware";
@@ -61,6 +62,7 @@ const ADAPTER_TELEMETRY_ROUTES = ["api/v1/adapters/*/telemetry"];
     ScimModule,
     AgentsModule,
     AdaptersModule,
+    LangChainModule,
     SharedErrorsModule,
   ],
   controllers: [HealthController],
