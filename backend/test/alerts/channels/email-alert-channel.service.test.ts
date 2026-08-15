@@ -19,6 +19,8 @@ function makeAlertEvent(overrides: Partial<AlertEvent> = {}): AlertEvent {
     actualValue: 0.9,
     severity: "critical",
     breachTimestamp: new Date("2026-08-16T00:00:00Z"),
+    detectionMethod: "threshold",
+    statisticalEvidence: null,
     ...overrides,
   };
 }

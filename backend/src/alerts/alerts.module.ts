@@ -71,6 +71,6 @@ import { WebhookConfigRepository } from "./webhook-config.repository";
     ThresholdEvaluatorService,
     ThresholdEvaluationSchedulerService,
   ],
-  exports: [AlertThresholdService, AlertThresholdRepository, AlertDeliveryService],
+  exports: [AlertThresholdService, AlertThresholdRepository, AlertDeliveryService, AlertEventRepository],
 })
 export class AlertsModule {}

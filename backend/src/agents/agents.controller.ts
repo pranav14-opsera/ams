@@ -1,6 +1,7 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, Patch, Post, Query, Req } from "@nestjs/common";
 import type { Request } from "express";
 import { AlertThresholdService } from "../alerts/alert-threshold.service";
+import { CalibrationService } from "../anomaly-detection/calibration.service";
 import { PermissionName } from "../rbac/rbac.constants";
 import { RequirePermission } from "../rbac/require-permission.decorator";
 import { AgentsService } from "./agents.service";
@@ -21,6 +22,7 @@ export class AgentsController {
     private readonly lifecycleService: LifecycleService,
     private readonly bulkLifecycleService: BulkLifecycleService,
     private readonly alertThresholdService: AlertThresholdService,
+    private readonly calibrationService: CalibrationService,
   ) {}
 
   @Post()
@@ -38,6 +40,12 @@ export class AgentsController {
       await this.alertThresholdService.applyDefaultThresholds(req.tenantDbClient, req.tenantId!, agent.id);
     } catch (err) {
       this.logger.warn(`failed to apply default alert thresholds for agent ${agent.id}: ${err instanceof Error ? err.message : err}`);
+    }
+    // WO-061 AC: calibration starts on agent registration — same best-effort, never-blocks-registration posture as the threshold defaults above.
+    try {
+      await this.calibrationService.startCalibration(req.tenantDbClient, req.tenantId!, agent.id);
+    } catch (err) {
+      this.logger.warn(`failed to start anomaly-detection calibration for agent ${agent.id}: ${err instanceof Error ? err.message : err}`);
     }
     return agent;
   }
