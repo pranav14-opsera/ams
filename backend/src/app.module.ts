@@ -3,6 +3,7 @@ import { AuthModule } from "./auth/auth.module";
 import { SessionValidationMiddleware } from "./auth/session/session-validation.middleware";
 import { AdaptersModule } from "./adapters/adapters.module";
 import { HmacValidationMiddleware } from "./adapters/hmac-validation.middleware";
+import { AutoGenModule } from "./adapters/autogen/autogen.module";
 import { CrewAiModule } from "./adapters/crewai/crewai.module";
 import { LangChainModule } from "./adapters/langchain/langchain.module";
 import { RestModule } from "./adapters/rest/rest.module";
@@ -67,6 +68,7 @@ const ADAPTER_TELEMETRY_ROUTES = ["api/v1/adapters/*/telemetry"];
     LangChainModule,
     RestModule,
     CrewAiModule,
+    AutoGenModule,
     SharedErrorsModule,
   ],
   controllers: [HealthController],
