@@ -7,6 +7,7 @@ import { TenantsModule } from "../tenants/tenants.module";
 import { AdapterRegistryService } from "./adapter-registry.service";
 import { AdaptersController } from "./adapters.controller";
 import { HmacValidationMiddleware } from "./hmac-validation.middleware";
+import { KafkaCircuitBreakerProducerService } from "./kafka/kafka-circuit-breaker-producer.service";
 import { KafkaTelemetryProducerService } from "./kafka/kafka-telemetry-producer.service";
 import { TelemetryDeadLetterRepository } from "./kafka/telemetry-dead-letter.repository";
 import { TELEMETRY_PUBLISHER } from "./kafka/telemetry-publisher.port";
@@ -23,7 +24,12 @@ import { TelemetrySchemaValidatorService } from "./telemetry-schema-validator.se
     TelemetrySchemaValidatorService,
     TelemetryDeadLetterRepository,
     TelemetryPipelineService,
-    { provide: TELEMETRY_PUBLISHER, useClass: KafkaTelemetryProducerService },
+    KafkaTelemetryProducerService,
+    // WO-040: the publisher every caller actually injects is the circuit
+    // breaker (3-failure threshold, 5s reset, 5-minute in-memory replay
+    // buffer) wrapping the real KafkaJS producer — not the bare producer
+    // itself.
+    { provide: TELEMETRY_PUBLISHER, useClass: KafkaCircuitBreakerProducerService },
   ],
   // AdapterRegistryService exported so per-framework adapter modules
   // (LangChainModule, and WO-036/037/038's REST/CrewAI/AutoGen modules)

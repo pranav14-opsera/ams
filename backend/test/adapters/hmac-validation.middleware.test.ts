@@ -146,3 +146,78 @@ test("a signature computed over a DIFFERENT body than what was actually sent is 
   await middleware.use(req, res, () => undefined);
   assert.equal(res.state.statusCode, 401);
 });
+
+test("allows a request with a fresh X-Timestamp header (well within the 5-minute window)", async () => {
+  const middleware = new HmacValidationMiddleware(fakeAgentsRepository(AGENT), fakeEncryptionService(SECRET));
+  const body = { hello: "world" };
+  const req = fakeReq({
+    headers: { "x-agent-id": "agent-1", "x-signature-256": signBody(body, SECRET), "x-timestamp": String(Date.now()) },
+    body,
+    rawBody: Buffer.from(JSON.stringify(body)),
+  });
+  const res = fakeRes();
+  let nextCalled = false;
+
+  await middleware.use(req, res, () => {
+    nextCalled = true;
+  });
+  assert.equal(nextCalled, true);
+});
+
+test("rejects a request whose X-Timestamp is more than 5 minutes old (replay protection)", async () => {
+  const middleware = new HmacValidationMiddleware(fakeAgentsRepository(AGENT), fakeEncryptionService(SECRET));
+  const body = { hello: "world" };
+  const sixMinutesAgo = Date.now() - 6 * 60 * 1000;
+  const req = fakeReq({
+    headers: { "x-agent-id": "agent-1", "x-signature-256": signBody(body, SECRET), "x-timestamp": String(sixMinutesAgo) },
+    body,
+    rawBody: Buffer.from(JSON.stringify(body)),
+  });
+  const res = fakeRes();
+
+  await middleware.use(req, res, () => undefined);
+  assert.equal(res.state.statusCode, 401);
+  assert.deepEqual(res.state.body, { error: "unauthorized", message: "Authentication failed" });
+});
+
+test("rejects a request whose X-Timestamp is more than 5 minutes in the future (clock-skew abuse guard)", async () => {
+  const middleware = new HmacValidationMiddleware(fakeAgentsRepository(AGENT), fakeEncryptionService(SECRET));
+  const body = { hello: "world" };
+  const sixMinutesAhead = Date.now() + 6 * 60 * 1000;
+  const req = fakeReq({
+    headers: { "x-agent-id": "agent-1", "x-signature-256": signBody(body, SECRET), "x-timestamp": String(sixMinutesAhead) },
+    body,
+    rawBody: Buffer.from(JSON.stringify(body)),
+  });
+  const res = fakeRes();
+
+  await middleware.use(req, res, () => undefined);
+  assert.equal(res.state.statusCode, 401);
+});
+
+test("rejects a request with an unparseable X-Timestamp header", async () => {
+  const middleware = new HmacValidationMiddleware(fakeAgentsRepository(AGENT), fakeEncryptionService(SECRET));
+  const body = { hello: "world" };
+  const req = fakeReq({
+    headers: { "x-agent-id": "agent-1", "x-signature-256": signBody(body, SECRET), "x-timestamp": "not-a-number" },
+    body,
+    rawBody: Buffer.from(JSON.stringify(body)),
+  });
+  const res = fakeRes();
+
+  await middleware.use(req, res, () => undefined);
+  assert.equal(res.state.statusCode, 401);
+});
+
+test("allows a request with NO X-Timestamp header at all (opt-in check — backward compatible with clients that don't send it)", async () => {
+  const middleware = new HmacValidationMiddleware(fakeAgentsRepository(AGENT), fakeEncryptionService(SECRET));
+  const body = { hello: "world" };
+  const req = fakeReq({ headers: { "x-agent-id": "agent-1", "x-signature-256": signBody(body, SECRET) }, body, rawBody: Buffer.from(JSON.stringify(body)) });
+  const res = fakeRes();
+  let nextCalled = false;
+
+  await middleware.use(req, res, () => {
+    nextCalled = true;
+  });
+  assert.equal(nextCalled, true);
+});
