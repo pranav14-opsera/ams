@@ -2,13 +2,24 @@ import { Module } from "@nestjs/common";
 import { EncryptionModule } from "../encryption/encryption.module";
 import { AUDIT_SERVICE } from "../tenants/ports/audit-service.port";
 import { PostgresAuditService } from "../tenants/ports/postgres/postgres-audit.service";
+import { WebsocketGatewayModule } from "../websocket-gateway/websocket-gateway.module";
+import { AgentInFlightOperationsService } from "./agent-inflight-operations.service";
+import { AgentStateTransitionsRepository } from "./agent-state-transitions.repository";
 import { AgentsController } from "./agents.controller";
 import { AgentsRepository } from "./agents.repository";
 import { AgentsService } from "./agents.service";
+import { LifecycleService } from "./lifecycle.service";
 
 @Module({
-  imports: [EncryptionModule],
+  imports: [EncryptionModule, WebsocketGatewayModule],
   controllers: [AgentsController],
-  providers: [AgentsRepository, AgentsService, { provide: AUDIT_SERVICE, useClass: PostgresAuditService }],
+  providers: [
+    AgentsRepository,
+    AgentsService,
+    AgentStateTransitionsRepository,
+    AgentInFlightOperationsService,
+    LifecycleService,
+    { provide: AUDIT_SERVICE, useClass: PostgresAuditService },
+  ],
 })
 export class AgentsModule {}

@@ -18,6 +18,7 @@ export interface AgentRow {
   connection_config_encrypted_dek: Buffer;
   connection_config_key_version: number;
   metadata: Record<string, unknown>;
+  version: number;
   created_by: string | null;
   created_at: Date;
   updated_at: Date;
@@ -166,6 +167,32 @@ export class AgentsRepository {
     const result = await executor.query<AgentRow>(
       "UPDATE agents SET lifecycle_status = 'decommissioned', updated_at = now() WHERE tenant_id = $1 AND id = $2 RETURNING *",
       [tenantId, id],
+    );
+    return result.rows[0] ?? null;
+  }
+
+  /**
+   * Compare-and-swap on both `version` and the expected current
+   * `lifecycle_status` in the same WHERE clause: a concurrent transition
+   * that ran between LifecycleService's read and this write will have
+   * bumped `version`, so this UPDATE affects zero rows and the caller
+   * (LifecycleService) treats that as an optimistic-lock conflict rather
+   * than silently overwriting a state change it never saw.
+   */
+  async compareAndSwapLifecycleStatus(
+    client: Pool | PoolClient | undefined,
+    tenantId: string,
+    id: string,
+    expectedStatus: AgentLifecycleStatus,
+    expectedVersion: number,
+    newStatus: AgentLifecycleStatus,
+  ): Promise<AgentRow | null> {
+    const executor = client ?? this.pool;
+    const result = await executor.query<AgentRow>(
+      `UPDATE agents SET lifecycle_status = $1, version = version + 1, updated_at = now()
+       WHERE tenant_id = $2 AND id = $3 AND lifecycle_status = $4 AND version = $5
+       RETURNING *`,
+      [newStatus, tenantId, id, expectedStatus, expectedVersion],
     );
     return result.rows[0] ?? null;
   }
