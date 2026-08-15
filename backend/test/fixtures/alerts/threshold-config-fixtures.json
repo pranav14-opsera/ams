@@ -1,0 +1,15 @@
+{
+  "description": "10 alert threshold configs across 2 tenants (WO-059 AC), for local dev/CI seeding and as documentation of realistic threshold shapes.",
+  "thresholds": [
+    { "tenantId": "tenant-alpha", "agentId": "agent-1", "metricName": "error_rate", "warningThreshold": 0.03, "criticalThreshold": 0.05, "cooldownSeconds": 300 },
+    { "tenantId": "tenant-alpha", "agentId": "agent-1", "metricName": "latency_p99", "warningThreshold": 1500, "criticalThreshold": 2000, "cooldownSeconds": 300 },
+    { "tenantId": "tenant-alpha", "agentId": "agent-2", "metricName": "error_rate", "warningThreshold": 0.02, "criticalThreshold": 0.04, "cooldownSeconds": 180 },
+    { "tenantId": "tenant-alpha", "agentId": "agent-2", "metricName": "token_consumption_rate", "warningThreshold": 750, "criticalThreshold": 1000, "cooldownSeconds": 300 },
+    { "tenantId": "tenant-alpha", "agentId": "agent-3", "metricName": "latency_p99", "warningThreshold": 1000, "criticalThreshold": 1800, "cooldownSeconds": 600 },
+    { "tenantId": "tenant-beta", "agentId": "agent-4", "metricName": "error_rate", "warningThreshold": 0.03, "criticalThreshold": 0.05, "cooldownSeconds": 300 },
+    { "tenantId": "tenant-beta", "agentId": "agent-4", "metricName": "resource_utilization", "warningThreshold": 0.8, "criticalThreshold": 0.9, "cooldownSeconds": 300 },
+    { "tenantId": "tenant-beta", "agentId": "agent-5", "metricName": "latency_p99", "warningThreshold": 1500, "criticalThreshold": 2000, "cooldownSeconds": 300 },
+    { "tenantId": "tenant-beta", "agentId": "agent-5", "metricName": "token_consumption_rate", "warningThreshold": 500, "criticalThreshold": 900, "cooldownSeconds": 120 },
+    { "tenantId": "tenant-beta", "agentId": "agent-6", "metricName": "error_rate", "warningThreshold": 0.05, "criticalThreshold": 0.1, "cooldownSeconds": 300 }
+  ]
+}

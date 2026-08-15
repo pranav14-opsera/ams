@@ -1,0 +1,11 @@
+{
+  "description": "Redis metric snapshot test data (WO-059 AC) — the shape MetricSnapshotCacheService stores per agent, paired with the threshold-config-fixtures.json thresholds they'd be evaluated against, and the expected alert outcome for each.",
+  "snapshots": [
+    { "tenantId": "tenant-alpha", "agentId": "agent-1", "snapshot": { "error_rate": 0.01, "latency_p99": 300 }, "expected": "no alert (below every warning threshold)" },
+    { "tenantId": "tenant-alpha", "agentId": "agent-2", "snapshot": { "error_rate": 0.03 }, "expected": "warning alert on error_rate (between 0.02 warning and 0.04 critical)" },
+    { "tenantId": "tenant-alpha", "agentId": "agent-3", "snapshot": { "latency_p99": 2200 }, "expected": "critical alert on latency_p99 (above 1800 critical)" },
+    { "tenantId": "tenant-beta", "agentId": "agent-4", "snapshot": { "error_rate": 0.5 }, "expected": "critical alert on error_rate (above 0.05 critical); resource_utilization threshold has no matching snapshot key, silently skipped" },
+    { "tenantId": "tenant-beta", "agentId": "agent-5", "snapshot": { "latency_p99": 1600, "token_consumption_rate": 950 }, "expected": "warning alert on latency_p99 (between 1500/2000) AND critical alert on token_consumption_rate (above 900)" },
+    { "tenantId": "tenant-beta", "agentId": "agent-6", "snapshot": {}, "expected": "no alert (no cached value for error_rate at all)" }
+  ]
+}

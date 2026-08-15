@@ -1,5 +1,6 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Query, Req } from "@nestjs/common";
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, Patch, Post, Query, Req } from "@nestjs/common";
 import type { Request } from "express";
+import { AlertThresholdService } from "../alerts/alert-threshold.service";
 import { PermissionName } from "../rbac/rbac.constants";
 import { RequirePermission } from "../rbac/require-permission.decorator";
 import { AgentsService } from "./agents.service";
@@ -13,17 +14,32 @@ import { LifecycleService } from "./lifecycle.service";
 
 @Controller("api/v1/agents")
 export class AgentsController {
+  private readonly logger = new Logger(AgentsController.name);
+
   constructor(
     private readonly agentsService: AgentsService,
     private readonly lifecycleService: LifecycleService,
     private readonly bulkLifecycleService: BulkLifecycleService,
+    private readonly alertThresholdService: AlertThresholdService,
   ) {}
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @RequirePermission(PermissionName.AGENT_CREATE)
   async create(@Body() dto: CreateAgentDto, @Req() req: Request) {
-    return this.agentsService.create(req.tenantDbClient, req.tenantId!, req.actorId ?? null, dto);
+    const agent = await this.agentsService.create(req.tenantDbClient, req.tenantId!, req.actorId ?? null, dto);
+    // AC: default thresholds auto-applied to newly registered agents.
+    // Awaited (so they genuinely exist by the time this response
+    // returns, not racing it) but never lets a threshold-creation
+    // failure fail agent registration itself — same "side-effect never
+    // blocks the primary operation" convention as this codebase's
+    // audit/metrics recording elsewhere.
+    try {
+      await this.alertThresholdService.applyDefaultThresholds(req.tenantDbClient, req.tenantId!, agent.id);
+    } catch (err) {
+      this.logger.warn(`failed to apply default alert thresholds for agent ${agent.id}: ${err instanceof Error ? err.message : err}`);
+    }
+    return agent;
   }
 
   @Get()
