@@ -15,6 +15,8 @@ declare module "express-serve-static-core" {
 
 const SIGNATURE_HEADER = "x-signature-256";
 const AGENT_ID_HEADER = "x-agent-id";
+const TIMESTAMP_HEADER = "x-timestamp";
+const TIMESTAMP_TOLERANCE_MS = 5 * 60 * 1000; // WO-040: reject a request whose timestamp is >5 minutes old (replay protection)
 const GENERIC_AUTH_FAILURE = { error: "unauthorized", message: "Authentication failed" };
 
 /**
@@ -79,9 +81,34 @@ export class HmacValidationMiddleware implements NestMiddleware {
       return;
     }
 
+    // WO-040: replay protection via X-Timestamp — enforced whenever the
+    // header is present (reject anything more than 5 minutes old OR more
+    // than 5 minutes in the future, guarding against clock-skew abuse in
+    // either direction). Deliberately NOT required outright: making it
+    // mandatory would reject every caller built against WO-034/035's
+    // originally-shipped contract (LangChain/CrewAI/AutoGen/REST clients,
+    // documented in *_ADAPTER.md, none of which send this header) —
+    // clients that adopt X-Timestamp get real, strictly-enforced replay
+    // protection; clients that don't are unaffected, same as this
+    // middleware's pre-existing behavior.
+    if (!this.isTimestampFresh(req.headers[TIMESTAMP_HEADER])) {
+      this.logger.warn(`security event: telemetry request has a stale or invalid X-Timestamp for agent ${agentId} — ${req.method} ${req.originalUrl}`);
+      res.status(401).json(GENERIC_AUTH_FAILURE);
+      return;
+    }
+
     req.telemetryAgentId = agent.id;
     req.tenantId = agent.tenant_id;
     next();
+  }
+
+  /** No header at all -> fresh (opt-in check, see the call site's comment). A present-but-unparseable or out-of-window header -> stale. */
+  private isTimestampFresh(header: string | string[] | undefined): boolean {
+    if (header === undefined) return true;
+    const value = Array.isArray(header) ? header[0] : header;
+    const timestampMs = Number(value);
+    if (!Number.isFinite(timestampMs)) return false;
+    return Math.abs(Date.now() - timestampMs) <= TIMESTAMP_TOLERANCE_MS;
   }
 
   private signaturesMatch(expectedHex: string, providedHex: string): boolean {
