@@ -34,6 +34,7 @@ document cannot silently drift from what's actually enforced.
 | agent_management:agent:delete | ✓ | | | | |
 | agent_management:agent:trigger | ✓ | ✓ | ✓ | | |
 | agent_management:agent:lifecycle_control | ✓ | | | | |
+| agent_management:agent:bulk_lifecycle_control | ✓ | | | | |
 | agent_management:trace:view_all | ✓ | | | | |
 | agent_management:trace:view_assigned | | | ✓ | | |
 | credit_management:allocation:manage | ✓ | | | ✓ | |

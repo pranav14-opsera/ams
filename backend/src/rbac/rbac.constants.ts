@@ -68,6 +68,7 @@ export enum PermissionName {
   AGENT_DELETE = "agent_management:agent:delete",
   AGENT_TRIGGER = "agent_management:agent:trigger",
   AGENT_LIFECYCLE_CONTROL = "agent_management:agent:lifecycle_control",
+  AGENT_BULK_LIFECYCLE_CONTROL = "agent_management:agent:bulk_lifecycle_control",
   TRACE_VIEW_ALL = "agent_management:trace:view_all",
   TRACE_VIEW_ASSIGNED = "agent_management:trace:view_assigned",
 

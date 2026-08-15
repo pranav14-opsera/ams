@@ -16,6 +16,7 @@ export const DEFAULT_PAUSE_DRAIN_TIMEOUT_MS = 30_000;
 
 export interface LifecycleTransitionResult {
   agent: AgentResource;
+  previousStatus: AgentLifecycleStatus;
   warning: string | null;
 }
 
@@ -103,6 +104,7 @@ export class LifecycleService {
 
     return {
       agent: toAgentResource(updated),
+      previousStatus: fromStatus,
       warning: warningFlag ? `Agent paused with ${incompleteOperationsCount} in-flight operation(s) still running after the ${drainTimeoutMs}ms drain timeout.` : null,
     };
   }
