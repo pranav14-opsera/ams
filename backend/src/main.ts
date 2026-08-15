@@ -7,7 +7,11 @@ import { CONTENT_SECURITY_POLICY_DIRECTIVES } from "./gateway/csp-policy";
 import { PhiMaskingLogger } from "./phi-scrubber/phi-masking.middleware";
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create(AppModule);
+  // rawBody: true (WO-034) — HmacValidationMiddleware verifies
+  // X-Signature-256 over the exact raw request bytes; re-serializing the
+  // already-JSON-parsed body wouldn't reliably match what the caller
+  // actually signed (key order/whitespace can differ).
+  const app = await NestFactory.create(AppModule, { rawBody: true });
   // Replaces Nest's own logger globally — every framework-internal and
   // application log call goes through PHI scrubbing, not just ones a
   // developer remembers to route through it explicitly (WO-017).

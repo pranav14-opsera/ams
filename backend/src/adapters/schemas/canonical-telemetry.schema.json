@@ -1,0 +1,39 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://ams.internal/schemas/canonical-telemetry.schema.json",
+  "title": "CanonicalTelemetryEvent",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "event_id",
+    "agent_id",
+    "tenant_id",
+    "timestamp",
+    "event_type",
+    "latency_ms",
+    "error_rate",
+    "token_consumption",
+    "tool_call_success",
+    "tool_call_name",
+    "framework_type",
+    "adapter_version",
+    "raw_payload_hash",
+    "metadata"
+  ],
+  "properties": {
+    "event_id": { "type": "string", "format": "uuid" },
+    "agent_id": { "type": "string", "format": "uuid" },
+    "tenant_id": { "type": "string", "format": "uuid" },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "event_type": { "type": "string", "enum": ["heartbeat", "metric", "trace", "error"] },
+    "latency_ms": { "type": ["number", "null"], "minimum": 0 },
+    "error_rate": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+    "token_consumption": { "type": ["number", "null"], "minimum": 0 },
+    "tool_call_success": { "type": ["boolean", "null"] },
+    "tool_call_name": { "type": ["string", "null"] },
+    "framework_type": { "type": "string", "enum": ["langchain", "crewai", "autogen", "generic_rest"] },
+    "adapter_version": { "type": "string", "minLength": 1 },
+    "raw_payload_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "metadata": { "type": "object" }
+  }
+}

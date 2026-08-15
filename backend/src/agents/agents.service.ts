@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { ConflictException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 import type { Pool, PoolClient } from "pg";
 import { PG_POOL } from "../common/database/database.module";
@@ -16,6 +17,17 @@ export interface AgentListResult {
   offset: number;
 }
 
+export interface CreateAgentResult extends AgentResource {
+  /**
+   * The raw HMAC shared secret (WO-034) for signing X-Signature-256 on
+   * telemetry submissions — revealed exactly once, here, at creation
+   * time. Never persisted in plaintext (only its BYOK-encrypted form is
+   * stored) and never returned by any other endpoint (findOne/findAll/
+   * update), same write-only convention as connection_config.
+   */
+  hmacSecret: string;
+}
+
 @Injectable()
 export class AgentsService {
   constructor(
@@ -30,14 +42,29 @@ export class AgentsService {
     tenantId: string,
     actorId: string | null,
     input: { name: string; framework: AgentFramework; teamId?: string; connectionConfig: Record<string, unknown>; metadata?: Record<string, unknown> },
-  ): Promise<AgentResource> {
+  ): Promise<CreateAgentResult> {
     const existing = await this.pool.query("SELECT id FROM agents WHERE tenant_id = $1 AND name = $2", [tenantId, input.name]);
     if (existing.rows.length > 0) {
       throw new ConflictException(`An agent named "${input.name}" already exists for this tenant.`);
     }
 
     const encryptedConfig = await this.encryptionService.encrypt(tenantId, Buffer.from(JSON.stringify(input.connectionConfig), "utf8"));
-    const row = await this.repository.create(client, tenantId, input.name, input.framework, input.teamId ?? null, encryptedConfig, input.metadata ?? {}, actorId);
+    // 256-bit random shared secret (WO-034) for HMAC-SHA256 telemetry
+    // signing — generated once at registration, same BYOK envelope
+    // encryption as connection_config, never stored in plaintext.
+    const hmacSecretBytes = randomBytes(32);
+    const encryptedHmacSecret = await this.encryptionService.encrypt(tenantId, hmacSecretBytes);
+    const row = await this.repository.create(
+      client,
+      tenantId,
+      input.name,
+      input.framework,
+      input.teamId ?? null,
+      encryptedConfig,
+      input.metadata ?? {},
+      actorId,
+      encryptedHmacSecret,
+    );
 
     await this.auditService.recordEvent({
       tenantId,
@@ -49,7 +76,7 @@ export class AgentsService {
       dataClassification: DataClassification.RESTRICTED,
     });
 
-    return toAgentResource(row);
+    return { ...toAgentResource(row), hmacSecret: hmacSecretBytes.toString("hex") };
   }
 
   async findAll(

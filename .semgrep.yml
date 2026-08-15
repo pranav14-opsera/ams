@@ -59,6 +59,12 @@ rules:
         # the full justification (same structural reason `tenants` itself
         # isn't tenant-scoped).
         - backend/src/scim/scim-token.repository.ts
+        # WO-034: HmacValidationMiddleware authenticates a telemetry
+        # request via a per-agent HMAC secret before any tenant context
+        # exists — findByIdAcrossTenants is the one deliberately
+        # tenant-less agent lookup that resolves the tenant in the first
+        # place, same structural reason as the SCIM entries above.
+        - backend/src/agents/agents.repository.ts
     metadata:
       category: security
       references:

@@ -47,11 +47,15 @@ test("a tenant provisioned via the saga is genuinely RLS-isolated from another t
     // Real data for tenant A only — inserted as the admin connection
     // (RLS doesn't block INSERT with an explicit tenant_id; it's the
     // read path this test is actually about).
-    // connection_config_* (WO-031): NOT NULL BYOK-encrypted columns —
-    // dummy placeholder bytes are fine here, this test only exercises
-    // RLS row visibility, not real encryption.
+    // connection_config_*/hmac_secret_* (WO-031/WO-034): NOT NULL
+    // BYOK-encrypted columns — dummy placeholder bytes are fine here,
+    // this test only exercises RLS row visibility, not real encryption.
     await adminPool.query(
-      "INSERT INTO agents (tenant_id, name, framework, connection_config_ciphertext, connection_config_iv, connection_config_auth_tag, connection_config_encrypted_dek, connection_config_key_version) VALUES ($1, $2, $3, $4, $4, $4, $4, 1)",
+      `INSERT INTO agents (
+         tenant_id, name, framework,
+         connection_config_ciphertext, connection_config_iv, connection_config_auth_tag, connection_config_encrypted_dek, connection_config_key_version,
+         hmac_secret_ciphertext, hmac_secret_iv, hmac_secret_auth_tag, hmac_secret_encrypted_dek, hmac_secret_key_version
+       ) VALUES ($1, $2, $3, $4, $4, $4, $4, 1, $4, $4, $4, $4, 1)`,
       [tenantA.id, "rls-test-agent", "langchain", Buffer.from("placeholder")],
     );
 
