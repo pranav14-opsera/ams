@@ -4,6 +4,8 @@ import { Kafka, type Producer } from "kafkajs";
 const DEFAULT_TOPIC = "credit.consumption";
 
 export interface CreditConsumptionEvent {
+  /** WO-067's own idempotency key — the reconciliation consumer's credit_processed_events table is keyed by this, not by Kafka offset (offsets aren't stable/comparable across a rebalance the way a caller-assigned UUID is). */
+  eventId: string;
   tenantId: string;
   teamId: string | null;
   agentId: string | null;

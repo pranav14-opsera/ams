@@ -24,6 +24,6 @@ import { MeteringEngineService } from "./metering-engine.service";
     MeteringEngineService,
     { provide: AUDIT_SERVICE, useClass: PostgresAuditService },
   ],
-  exports: [CreditTransactionRepository, CreditLedgerService, CreditRateMappingService, MeteringEngineService],
+  exports: [CreditTransactionRepository, CreditLedgerService, CreditRateMappingService, MeteringEngineService, CreditCacheCircuitBreakerService],
 })
 export class CreditsModule {}
