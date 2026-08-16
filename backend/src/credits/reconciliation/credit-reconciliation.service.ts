@@ -8,6 +8,7 @@ import { CreditLedgerService } from "../credit-ledger.service";
 import { CreditConsumptionDlqProducerService } from "./credit-consumption-dlq-producer.service";
 import { CreditProcessedEventRepository } from "./credit-processed-event.repository";
 import type { BatchResult, DlqEntry } from "./credit-reconciliation.types";
+import { ThresholdMonitorService } from "../threshold-alerts/threshold-monitor.service";
 
 const DLQ_METRIC_NAME = "credit_reconciliation_dlq";
 
@@ -34,6 +35,8 @@ export class CreditReconciliationService {
     /** Optional — existing/test call sites that don't pass these simply never raise a real alert on DLQ routing (same zero-blast-radius optional-DI convention used throughout this codebase). */
     private readonly alertEventRepository?: AlertEventRepository,
     private readonly alertDeliveryService?: AlertDeliveryService,
+    /** Optional — WO-069's own event-driven ("after each reconciliation batch") threshold monitoring hook. Existing/test call sites that don't pass this simply never trigger threshold evaluation. */
+    private readonly thresholdMonitorService?: ThresholdMonitorService,
   ) {}
 
   getLastSuccessfulBatchAt(): Date | null {
@@ -91,9 +94,32 @@ export class CreditReconciliationService {
         }
       }
       this.lastSuccessfulBatchAt = new Date();
+      await this.triggerThresholdMonitoring(client, affectedKeys);
     }
 
     return { processed: processedCount, deduplicated, skipped, failed, affectedBalanceKeys: [...affectedKeys.values()] };
+  }
+
+  /** AC: "triggered after each reconciliation batch completes (event-driven, not polling)" — a direct, in-process call immediately following this batch's own commit, same substitution as this WO's own documented Kafka-transport gap (no reachable broker in this sandbox to genuinely publish a `reconciliation.batch.completed` event to). */
+  private async triggerThresholdMonitoring(client: Pool | PoolClient | undefined, affectedKeys: Map<string, { tenantId: string; teamId: string | null }>): Promise<void> {
+    if (!this.thresholdMonitorService) return;
+
+    const teamIdsByTenant = new Map<string, string[]>();
+    for (const key of affectedKeys.values()) {
+      if (!key.teamId) continue; // no team to evaluate a team-scoped budget threshold against
+      const teamIds = teamIdsByTenant.get(key.tenantId) ?? [];
+      teamIds.push(key.teamId);
+      teamIdsByTenant.set(key.tenantId, teamIds);
+    }
+
+    const now = new Date();
+    for (const [tenantId, teamIds] of teamIdsByTenant) {
+      try {
+        await this.thresholdMonitorService.evaluateThresholds(client, tenantId, teamIds, now.getUTCMonth() + 1, now.getUTCFullYear());
+      } catch (err) {
+        this.logger.warn(`threshold monitoring failed for tenant ${tenantId} after reconciliation batch: ${err instanceof Error ? err.message : err}`);
+      }
+    }
   }
 
   /**
