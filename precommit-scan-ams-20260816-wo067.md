@@ -55,6 +55,20 @@ Redis path back to WO-065's authoritative ledger.
   `health.controller.ts`'s own routes — a Kafka consumer group's state
   isn't scoped to any one tenant.
 
+## Follow-up (same day): DLQ alert emission
+The initial implementation omitted the AC's "an alert is emitted" clause
+for DLQ-routed events. Fixed by wiring `CreditReconciliationService`
+into WO-060's existing `AlertDeliveryService` pipeline (optional DI, zero
+blast radius to existing call sites/tests). `alert_events.agent_id` is a
+`NOT NULL` FK (migration 046) — every alert in this codebase is
+agent-scoped — so a DLQ'd event with no `agent_id` at all (a team-level
+consumption event, not attributed to any single agent) correctly skips
+alert emission with a logged warning rather than fabricating a fake
+agent reference. 3 new unit tests cover: real emission with a valid
+agent_id, the no-agent-id skip, and zero-blast-radius when the alert
+services aren't wired at all. Full regression re-run: 69 passing, 0
+failing; security scans re-run clean.
+
 ## Verification
 - `npm run typecheck` / `npm run build` — clean.
 - `node scripts/verify-boot.js` — full DI graph (including the new
