@@ -1,4 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
+import { randomUUID } from "node:crypto";
 import { CreditCacheCircuitBreakerService } from "./credit-cache-circuit-breaker.service";
 import { CreditConsumptionKafkaProducerService } from "./credit-consumption-kafka-producer.service";
 import { CreditLedgerService } from "./credit-ledger.service";
@@ -125,6 +126,7 @@ export class MeteringEngineService {
 
     this.kafkaProducer
       .publish({
+        eventId: randomUUID(),
         tenantId: request.tenantId,
         teamId: request.teamId,
         agentId: request.agentId,

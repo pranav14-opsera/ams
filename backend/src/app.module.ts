@@ -11,6 +11,7 @@ import { RestModule } from "./adapters/rest/rest.module";
 import { ClassificationModule } from "./classification/classification.module";
 import { DatabaseModule } from "./common/database/database.module";
 import { CreditsModule } from "./credits/credits.module";
+import { CreditReconciliationModule } from "./credits/reconciliation/credit-reconciliation.module";
 import { TenantContextMiddleware } from "./common/tenant-context.middleware";
 import { HealthController } from "./health.controller";
 import { AgentsModule } from "./agents/agents.module";
@@ -32,6 +33,7 @@ const PRE_AUTH_ROUTES = [
   "health/live",
   "health/ready",
   "health/startup",
+  "health/credit-reconciliation",
   "metrics",
   "api/v1/auth/saml/callback",
   "api/v1/auth/oidc/callback",
@@ -79,6 +81,7 @@ const ADAPTER_TELEMETRY_ROUTES = ["api/v1/adapters/*/telemetry"];
     QualityScoreModule,
     DriftDetectionModule,
     CreditsModule,
+    CreditReconciliationModule,
     AdaptersModule,
     LangChainModule,
     RestModule,
