@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { ScheduleModule } from "@nestjs/schedule";
 import { AlertsModule } from "../../alerts/alerts.module";
 import { CreditsModule } from "../credits.module";
+import { CreditThresholdAlertsModule } from "../threshold-alerts/credit-threshold-alerts.module";
 import { CreditConsumptionDlqProducerService } from "./credit-consumption-dlq-producer.service";
 import { CreditProcessedEventRepository } from "./credit-processed-event.repository";
 import { CreditProcessedEventsCleanupSchedulerService } from "./credit-processed-events-cleanup.scheduler.service";
@@ -10,7 +11,7 @@ import { CreditReconciliationHealthController } from "./credit-reconciliation-he
 import { CreditReconciliationService } from "./credit-reconciliation.service";
 
 @Module({
-  imports: [ScheduleModule.forRoot(), CreditsModule, AlertsModule],
+  imports: [ScheduleModule.forRoot(), CreditsModule, AlertsModule, CreditThresholdAlertsModule],
   controllers: [CreditReconciliationHealthController],
   providers: [
     CreditProcessedEventRepository,

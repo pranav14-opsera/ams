@@ -77,6 +77,14 @@ class FakeAlertDeliveryService {
   }
 }
 
+class FakeThresholdMonitorService {
+  public calls: Array<{ tenantId: string; teamIds: string[] }> = [];
+  async evaluateThresholds(_client: unknown, tenantId: string, teamIds: string[]) {
+    this.calls.push({ tenantId, teamIds });
+    return [];
+  }
+}
+
 function buildRig() {
   const processedEventRepository = new FakeProcessedEventRepository();
   const ledgerService = new FakeLedgerService();
@@ -84,8 +92,17 @@ function buildRig() {
   const dlqProducer = new FakeDlqProducer();
   const alertEventRepository = new FakeAlertEventRepository();
   const alertDeliveryService = new FakeAlertDeliveryService();
-  const service = new CreditReconciliationService(processedEventRepository as any, ledgerService as any, cacheBreaker as any, dlqProducer as any, alertEventRepository as any, alertDeliveryService as any);
-  return { processedEventRepository, ledgerService, cacheBreaker, dlqProducer, alertEventRepository, alertDeliveryService, service };
+  const thresholdMonitorService = new FakeThresholdMonitorService();
+  const service = new CreditReconciliationService(
+    processedEventRepository as any,
+    ledgerService as any,
+    cacheBreaker as any,
+    dlqProducer as any,
+    alertEventRepository as any,
+    alertDeliveryService as any,
+    thresholdMonitorService as any,
+  );
+  return { processedEventRepository, ledgerService, cacheBreaker, dlqProducer, alertEventRepository, alertDeliveryService, thresholdMonitorService, service };
 }
 
 test("a genuine cache-mode allowed event is recorded as a real ledger debit and marked processed", async () => {
@@ -221,4 +238,34 @@ test("getLastSuccessfulBatchAt reflects only genuinely successful (processed > 0
 
   await service.processBatch(undefined, [makeEvent()]);
   assert.ok(service.getLastSuccessfulBatchAt() instanceof Date);
+});
+
+test("WO-069: a successful batch triggers threshold monitoring for every affected (tenant, team), grouped by tenant", async () => {
+  const { thresholdMonitorService, service } = buildRig();
+  const events = [makeEvent({ tenantId: "tenant-a", teamId: "team-1" }), makeEvent({ tenantId: "tenant-a", teamId: "team-2" }), makeEvent({ tenantId: "tenant-b", teamId: "team-3" })];
+
+  await service.processBatch(undefined, events);
+
+  assert.equal(thresholdMonitorService.calls.length, 2, "one call per distinct tenant, not once per event");
+  const tenantACall = thresholdMonitorService.calls.find((c) => c.tenantId === "tenant-a")!;
+  assert.deepEqual(tenantACall.teamIds.sort(), ["team-1", "team-2"]);
+  const tenantBCall = thresholdMonitorService.calls.find((c) => c.tenantId === "tenant-b")!;
+  assert.deepEqual(tenantBCall.teamIds, ["team-3"]);
+});
+
+test("WO-069: a batch where nothing was genuinely reconciled (all skipped/deduplicated) never triggers threshold monitoring", async () => {
+  const { thresholdMonitorService, service } = buildRig();
+  await service.processBatch(undefined, [makeEvent({ decision: "denied" })]);
+  assert.equal(thresholdMonitorService.calls.length, 0);
+});
+
+test("WO-069: without the optional ThresholdMonitorService wired at all, batch processing still works exactly as before (zero blast radius)", async () => {
+  const processedEventRepository = new FakeProcessedEventRepository();
+  const ledgerService = new FakeLedgerService();
+  const cacheBreaker = new FakeCacheBreaker();
+  const dlqProducer = new FakeDlqProducer();
+  const service = new CreditReconciliationService(processedEventRepository as any, ledgerService as any, cacheBreaker as any, dlqProducer as any);
+
+  const result = await service.processBatch(undefined, [makeEvent()]);
+  assert.equal(result.processed, 1);
 });
