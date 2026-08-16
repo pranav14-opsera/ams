@@ -11,6 +11,7 @@ import { RestModule } from "./adapters/rest/rest.module";
 import { ClassificationModule } from "./classification/classification.module";
 import { DatabaseModule } from "./common/database/database.module";
 import { CreditsModule } from "./credits/credits.module";
+import { CreditBudgetModule } from "./credits/budget/credit-budget.module";
 import { CreditReconciliationModule } from "./credits/reconciliation/credit-reconciliation.module";
 import { TenantContextMiddleware } from "./common/tenant-context.middleware";
 import { HealthController } from "./health.controller";
@@ -82,6 +83,7 @@ const ADAPTER_TELEMETRY_ROUTES = ["api/v1/adapters/*/telemetry"];
     DriftDetectionModule,
     CreditsModule,
     CreditReconciliationModule,
+    CreditBudgetModule,
     AdaptersModule,
     LangChainModule,
     RestModule,
