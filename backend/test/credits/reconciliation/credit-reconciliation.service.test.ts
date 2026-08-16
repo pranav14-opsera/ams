@@ -61,13 +61,31 @@ class FakeDlqProducer {
   }
 }
 
+class FakeAlertEventRepository {
+  public created: unknown[] = [];
+  async create(_client: unknown, tenantId: string, agentId: string, fields: Record<string, unknown>) {
+    const event = { id: `alert-${this.created.length + 1}`, tenantId, agentId, ...fields };
+    this.created.push(event);
+    return event;
+  }
+}
+
+class FakeAlertDeliveryService {
+  public delivered: unknown[] = [];
+  async deliver(event: unknown) {
+    this.delivered.push(event);
+  }
+}
+
 function buildRig() {
   const processedEventRepository = new FakeProcessedEventRepository();
   const ledgerService = new FakeLedgerService();
   const cacheBreaker = new FakeCacheBreaker();
   const dlqProducer = new FakeDlqProducer();
-  const service = new CreditReconciliationService(processedEventRepository as any, ledgerService as any, cacheBreaker as any, dlqProducer as any);
-  return { processedEventRepository, ledgerService, cacheBreaker, dlqProducer, service };
+  const alertEventRepository = new FakeAlertEventRepository();
+  const alertDeliveryService = new FakeAlertDeliveryService();
+  const service = new CreditReconciliationService(processedEventRepository as any, ledgerService as any, cacheBreaker as any, dlqProducer as any, alertEventRepository as any, alertDeliveryService as any);
+  return { processedEventRepository, ledgerService, cacheBreaker, dlqProducer, alertEventRepository, alertDeliveryService, service };
 }
 
 test("a genuine cache-mode allowed event is recorded as a real ledger debit and marked processed", async () => {
@@ -129,6 +147,40 @@ test("a failing event is routed to the DLQ with error details, and does not stop
   assert.equal(result.failed.length, 1);
   assert.equal(result.failed[0].event.tenantId, "tenant-broken");
   assert.ok(result.failed[0].error.includes("simulated ledger failure"));
+  assert.equal(dlqProducer.published.length, 1);
+});
+
+test("a DLQ-routed event with a real agent_id raises a real alert through the shared alert-delivery pipeline", async () => {
+  const { ledgerService, alertEventRepository, alertDeliveryService, service } = buildRig();
+  ledgerService.shouldFailFor.add("tenant-broken");
+  const badEvent = makeEvent({ tenantId: "tenant-broken", agentId: "11111111-1111-1111-1111-111111111111" });
+
+  await service.processBatch(undefined, [badEvent]);
+  assert.equal(alertEventRepository.created.length, 1);
+  assert.equal((alertEventRepository.created[0] as any).metricName, "credit_reconciliation_dlq");
+  assert.equal(alertDeliveryService.delivered.length, 1);
+});
+
+test("a DLQ-routed event with no agent_id at all skips alert_events emission (that table requires a real agent) without throwing", async () => {
+  const { ledgerService, alertEventRepository, service } = buildRig();
+  ledgerService.shouldFailFor.add("tenant-broken");
+  const badEvent = makeEvent({ tenantId: "tenant-broken", agentId: null });
+
+  const result = await service.processBatch(undefined, [badEvent]);
+  assert.equal(result.failed.length, 1, "the event is still correctly DLQ'd");
+  assert.equal(alertEventRepository.created.length, 0);
+});
+
+test("without the optional alert services wired at all, DLQ routing still works exactly as before (zero blast radius)", async () => {
+  const processedEventRepository = new FakeProcessedEventRepository();
+  const ledgerService = new FakeLedgerService();
+  const cacheBreaker = new FakeCacheBreaker();
+  const dlqProducer = new FakeDlqProducer();
+  ledgerService.shouldFailFor.add("tenant-broken");
+  const service = new CreditReconciliationService(processedEventRepository as any, ledgerService as any, cacheBreaker as any, dlqProducer as any);
+
+  const result = await service.processBatch(undefined, [makeEvent({ tenantId: "tenant-broken" })]);
+  assert.equal(result.failed.length, 1);
   assert.equal(dlqProducer.published.length, 1);
 });
 
