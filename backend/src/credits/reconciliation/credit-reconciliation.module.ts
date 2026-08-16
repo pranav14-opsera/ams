@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { ScheduleModule } from "@nestjs/schedule";
+import { AlertsModule } from "../../alerts/alerts.module";
 import { CreditsModule } from "../credits.module";
 import { CreditConsumptionDlqProducerService } from "./credit-consumption-dlq-producer.service";
 import { CreditProcessedEventRepository } from "./credit-processed-event.repository";
@@ -9,7 +10,7 @@ import { CreditReconciliationHealthController } from "./credit-reconciliation-he
 import { CreditReconciliationService } from "./credit-reconciliation.service";
 
 @Module({
-  imports: [ScheduleModule.forRoot(), CreditsModule],
+  imports: [ScheduleModule.forRoot(), CreditsModule, AlertsModule],
   controllers: [CreditReconciliationHealthController],
   providers: [
     CreditProcessedEventRepository,
