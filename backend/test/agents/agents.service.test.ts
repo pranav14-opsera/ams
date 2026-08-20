@@ -389,3 +389,42 @@ test("every create/update/delete operation produces an immutable audit_events en
     await pool.end();
   }
 });
+
+test("prepareRetryValidation decrypts the agent's own stored connectionConfig while still connecting", { skip }, async () => {
+  const pool = new Pool({ connectionString: DATABASE_URL });
+  const { saga, service } = await buildRig(pool);
+  const slug = randomSlug();
+  try {
+    const tenant = await saga.provision({ name: "Retry Validation Co", slug, dataResidencyRegion: "us", actorId: null });
+    const created = await service.create(pool, tenant.id, null, {
+      name: "Retryable Bot",
+      framework: "generic_rest",
+      connectionConfig: { baseUrl: "https://example.com", healthCheckEndpoint: "/health" },
+    });
+
+    const { agent, framework, connectionConfig } = await service.prepareRetryValidation(pool, tenant.id, created.id);
+    assert.equal(agent.id, created.id);
+    assert.equal(framework, "generic_rest");
+    assert.deepEqual(connectionConfig, { baseUrl: "https://example.com", healthCheckEndpoint: "/health" });
+  } finally {
+    await cleanupTenant(pool, slug);
+    await pool.end();
+  }
+});
+
+test("prepareRetryValidation rejects an agent that is no longer connecting", { skip }, async () => {
+  const pool = new Pool({ connectionString: DATABASE_URL });
+  const { saga, service, repository } = await buildRig(pool);
+  const slug = randomSlug();
+  try {
+    const tenant = await saga.provision({ name: "Retry Validation Co 2", slug, dataResidencyRegion: "us", actorId: null });
+    const created = await service.create(pool, tenant.id, null, { name: "Active Bot", framework: "langchain", connectionConfig: {} });
+    const row = await repository.findOne(pool, tenant.id, created.id);
+    await repository.compareAndSwapLifecycleStatus(pool, tenant.id, created.id, "connecting", row!.version, "active");
+
+    await assert.rejects(() => service.prepareRetryValidation(pool, tenant.id, created.id), /not awaiting connection validation/);
+  } finally {
+    await cleanupTenant(pool, slug);
+    await pool.end();
+  }
+});

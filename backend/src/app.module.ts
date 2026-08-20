@@ -27,6 +27,7 @@ import { QualityScoreModule } from "./quality-score/quality-score.module";
 import { RbacModule } from "./rbac/rbac.module";
 import { ScimModule } from "./scim/scim.module";
 import { SharedErrorsModule } from "./shared/errors/shared-errors.module";
+import { TeamsModule } from "./teams/teams.module";
 import { TenantsModule } from "./tenants/tenants.module";
 import { WebsocketGatewayModule } from "./websocket-gateway/websocket-gateway.module";
 
@@ -76,6 +77,7 @@ const ADAPTER_TELEMETRY_ROUTES = ["api/v1/adapters/*/telemetry"];
     RbacModule,
     ScimModule,
     AgentsModule,
+    TeamsModule,
     DashboardModule,
     AlertsModule,
     AnomalyDetectionModule,

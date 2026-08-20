@@ -1,8 +1,14 @@
+import type { ConnectionValidationResult } from "./connection-validation.service";
 import type { AgentRow } from "./agents.repository";
 
 export interface AgentTeamRef {
   id: string;
   name: string;
+}
+
+export interface AppliedPolicies {
+  rbac: string[];
+  creditBudget: { amount: number; currency: string } | null;
 }
 
 export interface AgentResource {
@@ -30,6 +36,22 @@ export interface AgentResource {
   version: number;
   registeredAt: string;
   updatedAt: string;
+  /**
+   * WO-080 Step 4/api_contracts' `connectionValidation` field —
+   * ConnectionValidationService's own fire-and-forget outcome, read back
+   * from `metadata.connectionValidation` (see that service's own docstring
+   * for why this rides on the existing flexible metadata column rather
+   * than a new lifecycle status). Defaults to "pending" until that
+   * background write lands.
+   */
+  connectionValidation: ConnectionValidationResult;
+  /**
+   * WO-080 success-screen AC ("applied RBAC policies and credit budget") —
+   * populated only by AgentsService.findOne (the wizard's own Step 4 poll
+   * target), not by findAll/create, to avoid an extra RBAC+budget lookup
+   * on every paginated registry-table row.
+   */
+  appliedPolicies?: AppliedPolicies;
 }
 
 /**
@@ -40,6 +62,13 @@ export interface AgentResource {
  * convention as WO-018's SsoConfigController never returning
  * oidcClientSecret.
  */
+function toConnectionValidation(row: AgentRow): ConnectionValidationResult {
+  const recorded = row.metadata?.connectionValidation as ConnectionValidationResult | undefined;
+  if (recorded && typeof recorded === "object" && typeof recorded.status === "string") return recorded;
+  if (row.lifecycle_status === "active") return { status: "success", message: "Connection validated successfully.", completedAt: row.updated_at.toISOString() };
+  return { status: "pending", message: null, completedAt: null };
+}
+
 export function toAgentResource(row: AgentRow): AgentResource {
   return {
     id: row.id,
@@ -54,5 +83,6 @@ export function toAgentResource(row: AgentRow): AgentResource {
     version: row.version,
     registeredAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
+    connectionValidation: toConnectionValidation(row),
   };
 }

@@ -1,0 +1,25 @@
+{
+  "$id": "urn:ams:agent-connection-schema:crewai",
+  "title": "CrewAI Connection (Preview)",
+  "description": "Phase 2 preview schema — proves the schema-driven form renderer accommodates a new framework with no wizard code changes. Not selectable in Phase 1 (see frameworks.ts's own `available: false`).",
+  "type": "object",
+  "properties": {
+    "crewEndpointUrl": {
+      "type": "string",
+      "format": "uri",
+      "title": "Crew Endpoint URL",
+      "description": "The base URL your CrewAI crew's orchestrator API is reachable at.",
+      "x-order": 1,
+      "x-widget": "url"
+    },
+    "apiKey": {
+      "type": "string",
+      "format": "password",
+      "title": "API Key / Token",
+      "description": "Used to authenticate control-plane calls to your crew.",
+      "x-order": 2,
+      "x-widget": "password"
+    }
+  },
+  "required": ["crewEndpointUrl", "apiKey"]
+}

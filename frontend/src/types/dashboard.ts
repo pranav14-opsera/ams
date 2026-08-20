@@ -160,6 +160,8 @@ export type TeamUsageFramework = (typeof TEAM_USAGE_FRAMEWORKS)[number];
 export interface TeamRef {
   id: string;
   name: string;
+  /** Only populated by `GET /api/v1/teams` (WO-080's own team-assignment step) — WO-075's `GET /api/v1/dashboards/usage/team/teams` selector never sets it, so every existing consumer of that endpoint's TeamRef simply sees `undefined` here, same as before this field existed. */
+  memberCount?: number;
 }
 
 export interface TeamBalanceSummary {
@@ -287,4 +289,61 @@ export interface AgentStatusUpdateMessage {
   status: AgentLifecycleStatus;
   healthScore?: number | null;
   lastSeen: string;
+}
+
+// WO-080: Register New Agent multi-step wizard.
+
+export interface CreateAgentRequest {
+  name: string;
+  framework: AgentFramework;
+  teamId: string;
+  connectionConfig: Record<string, unknown>;
+  description?: string;
+  frameworkVersion?: string;
+}
+
+export interface CreateAgentResponse {
+  id: string;
+  name: string;
+  framework: string;
+  status: AgentLifecycleStatus;
+  teamId: string | null;
+  createdAt: string;
+  createdBy?: string | null;
+}
+
+export const CONNECTION_VALIDATION_STATUSES = ["pending", "success", "failed"] as const;
+export type ConnectionValidationStatus = (typeof CONNECTION_VALIDATION_STATUSES)[number];
+
+export interface ConnectionValidationInfo {
+  status: ConnectionValidationStatus;
+  message: string | null;
+  completedAt: string | null;
+}
+
+export interface AppliedPolicies {
+  rbac: string[];
+  creditBudget: { amount: number; currency: string } | null;
+}
+
+export interface AgentDetail {
+  id: string;
+  name: string;
+  framework: string;
+  lifecycleStatus: AgentLifecycleStatus;
+  team: AgentRegistryTeamRef | null;
+  connectionValidation: ConnectionValidationInfo;
+  appliedPolicies?: AppliedPolicies;
+}
+
+export interface ApiFieldError {
+  field: string;
+  message: string;
+}
+
+export interface ApiErrorBody {
+  error: string;
+  message: string;
+  details?: ApiFieldError[];
+  request_id?: string;
 }

@@ -7,6 +7,7 @@ import { PermissionName } from "../rbac/rbac.constants";
 import { RequirePermission } from "../rbac/require-permission.decorator";
 import { AgentsService } from "./agents.service";
 import { BulkLifecycleService } from "./bulk-lifecycle.service";
+import { ConnectionValidationService } from "./connection-validation.service";
 import { CreateAgentDto } from "./dto/create-agent.dto";
 import { BulkLifecycleDto } from "./dto/bulk-lifecycle.dto";
 import { LifecycleTransitionDto } from "./dto/lifecycle-transition.dto";
@@ -25,6 +26,7 @@ export class AgentsController {
     private readonly alertThresholdService: AlertThresholdService,
     private readonly calibrationService: CalibrationService,
     private readonly qualityScoreService: QualityScoreService,
+    private readonly connectionValidationService: ConnectionValidationService,
   ) {}
 
   @Post()
@@ -55,6 +57,16 @@ export class AgentsController {
     } catch (err) {
       this.logger.warn(`failed to start quality-score calibration for agent ${agent.id}: ${err instanceof Error ? err.message : err}`);
     }
+    // WO-080 AC: "connection validation... completes within 60 seconds
+    // with real-time progress feedback" — deliberately NOT awaited (this
+    // route's own AC 10 needs the response itself within 5 seconds,
+    // regardless of how long the target endpoint takes to answer). The
+    // wizard's Step 4 polls GET /api/v1/agents/{id} to observe the
+    // outcome this records. Same fire-and-forget `.catch()` convention as
+    // AdapterHealthSchedulerService's own health-probe tick.
+    this.connectionValidationService
+      .validate(req.tenantId!, req.actorId ?? null, agent.id, dto.framework, dto.connectionConfig)
+      .catch((err) => this.logger.warn(`connection validation failed to run for agent ${agent.id}: ${err instanceof Error ? err.message : err}`));
     return agent;
   }
 
@@ -82,6 +94,20 @@ export class AgentsController {
   @RequirePermission(PermissionName.AGENT_READ)
   async findOne(@Param("id") id: string, @Req() req: Request) {
     return this.agentsService.findOne(req.tenantDbClient, req.tenantId!, id);
+  }
+
+  // WO-080 edge_case: "Connection validation timeout/failure... 'Retry'
+  // option" — re-runs the same fire-and-forget validation this agent's
+  // own creation kicked off, against its already-stored connectionConfig.
+  @Post(":id/retry-validation")
+  @HttpCode(HttpStatus.ACCEPTED)
+  @RequirePermission(PermissionName.AGENT_CREATE)
+  async retryValidation(@Param("id") id: string, @Req() req: Request) {
+    const { agent, framework, connectionConfig } = await this.agentsService.prepareRetryValidation(req.tenantDbClient, req.tenantId!, id);
+    this.connectionValidationService
+      .validate(req.tenantId!, req.actorId ?? null, id, framework, connectionConfig)
+      .catch((err) => this.logger.warn(`connection validation retry failed to run for agent ${id}: ${err instanceof Error ? err.message : err}`));
+    return agent;
   }
 
   @Patch(":id")

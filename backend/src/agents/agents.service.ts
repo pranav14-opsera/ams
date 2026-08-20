@@ -4,12 +4,23 @@ import type { Pool, PoolClient } from "pg";
 import { PG_POOL } from "../common/database/database.module";
 import { AdapterHealthService, type CompatibilityWarning } from "../adapters/health/adapter-health.service";
 import { DataClassification } from "../classification/data-classification.enum";
+import { CreditBudgetRepository } from "../credits/budget/credit-budget.repository";
 import { EncryptionService } from "../encryption/encryption.service";
+import { PlatformRoleName } from "../rbac/rbac.constants";
+import { RbacDefinitionService } from "../rbac/rbac-definition.service";
 import { AUDIT_SERVICE, type AuditServicePort } from "../tenants/ports/audit-service.port";
 import { AgentResource, toAgentResource } from "./agent.mapper";
 import { AgentsRepository } from "./agents.repository";
 import type { AgentFramework } from "./dto/create-agent.dto";
 import type { AgentLifecycleStatus, AgentSortField, SortOrder } from "./dto/list-agents-query.dto";
+
+// Same team-scoped role list used throughout this codebase's RBAC-aware
+// services (RbacGuard, TeamUsageDashboardService) — the two roles whose
+// permissions are actually exercised "against this specific agent's
+// team", which is what the success screen's "applied RBAC policies" is
+// meant to convey (platform_admin/finance_manager/compliance_officer are
+// organization-scoped, not something a team's agent "applies").
+const TEAM_SCOPED_ROLE_NAMES: readonly string[] = [PlatformRoleName.TEAM_LEAD, PlatformRoleName.AGENT_OPERATOR];
 
 export interface AgentListResult {
   agents: AgentResource[];
@@ -45,6 +56,16 @@ export class AgentsService {
     private readonly encryptionService: EncryptionService,
     @Inject(AUDIT_SERVICE) private readonly auditService: AuditServicePort,
     private readonly adapterHealthService: AdapterHealthService,
+    // Optional — WO-080's own success-screen "applied RBAC policies and
+    // credit budget" AC (findOne only). Same zero-blast-radius optional-DI
+    // convention as CreditBudgetService's own rateMappingService: every
+    // existing call site across this codebase's test suite that
+    // constructs `new AgentsService(...)` directly (predating this WO)
+    // keeps compiling and working — appliedPolicies simply comes back
+    // empty/null when these aren't supplied, rather than every one of
+    // those call sites needing an update for a field they don't assert on.
+    private readonly rbacDefinitionService?: RbacDefinitionService,
+    private readonly creditBudgetRepository?: CreditBudgetRepository,
   ) {}
 
   async create(
@@ -143,7 +164,79 @@ export class AgentsService {
   async findOne(client: Pool | PoolClient | undefined, tenantId: string, id: string): Promise<AgentResource> {
     const row = await this.repository.findOne(client, tenantId, id);
     if (!row) throw new NotFoundException(`No agent with id ${id}.`);
-    return toAgentResource(row);
+    const resource = toAgentResource(row);
+    resource.appliedPolicies = await this.resolveAppliedPolicies(client, tenantId, row.team_id);
+    return resource;
+  }
+
+  /**
+   * WO-080 edge_case: "Connection validation timeout... 'Retry'... option"
+   * (and the analogous case for an outright validation failure, not just a
+   * timeout). Decrypts this agent's own already-stored connectionConfig
+   * (never re-collected from the client — the wizard never re-sends
+   * credentials on retry) so AgentsController can re-run
+   * ConnectionValidationService.validate against it, exactly as it did at
+   * original creation. Only valid while the agent is still `connecting` —
+   * once it's `active` there's nothing left to retry, and the state
+   * machine has no path back into `connecting` from anywhere else.
+   */
+  async prepareRetryValidation(
+    client: Pool | PoolClient | undefined,
+    tenantId: string,
+    id: string,
+  ): Promise<{ agent: AgentResource; framework: AgentFramework; connectionConfig: Record<string, unknown> }> {
+    const row = await this.repository.findOne(client, tenantId, id);
+    if (!row) throw new NotFoundException(`No agent with id ${id}.`);
+    if (row.lifecycle_status !== "connecting") {
+      throw new ConflictException(`Agent is not awaiting connection validation (current status: "${row.lifecycle_status}").`);
+    }
+
+    const decrypted = await this.encryptionService.decrypt(tenantId, {
+      ciphertext: row.connection_config_ciphertext,
+      iv: row.connection_config_iv,
+      authTag: row.connection_config_auth_tag,
+      encryptedDataKey: row.connection_config_encrypted_dek,
+      keyVersion: row.connection_config_key_version,
+    });
+    const connectionConfig = JSON.parse(decrypted.toString("utf8")) as Record<string, unknown>;
+
+    return { agent: toAgentResource(row), framework: row.framework, connectionConfig };
+  }
+
+  /**
+   * WO-080 success-screen AC: "shows... applied RBAC policies, and credit
+   * budget." No dedicated "team default policy" record is created at
+   * agent-registration time (searched rbac/ and credits/budget/ for one —
+   * there isn't one; RBAC access to a team's agents is governed entirely
+   * by the caller's own role/team-membership at request time, and a
+   * team's credit allocation is a pre-existing, independently-managed
+   * CreditBudgetService concept, not something agent creation applies).
+   * This surfaces both of those EXISTING, already-in-effect things —
+   * the team-scoped role permissions that govern who can act on this
+   * agent, and the team's current-period budget allocation if one has
+   * been set — rather than fabricating a new "policy" object.
+   */
+  private async resolveAppliedPolicies(
+    client: Pool | PoolClient | undefined,
+    tenantId: string,
+    teamId: string | null,
+  ): Promise<{ rbac: string[]; creditBudget: { amount: number; currency: string } | null }> {
+    if (!this.rbacDefinitionService || !this.creditBudgetRepository) return { rbac: [], creditBudget: null };
+    const roles = await this.rbacDefinitionService.getRoles();
+    const rbac = roles
+      .filter((role) => TEAM_SCOPED_ROLE_NAMES.includes(role.name))
+      .flatMap((role) => role.permissions)
+      .filter((permission, index, all) => permission.startsWith("agent_management:") && all.indexOf(permission) === index)
+      .sort();
+
+    let creditBudget: { amount: number; currency: string } | null = null;
+    if (teamId) {
+      const now = new Date();
+      const budget = await this.creditBudgetRepository.findBudget(client, tenantId, teamId, now.getUTCMonth() + 1, now.getUTCFullYear());
+      creditBudget = budget ? { amount: budget.allocatedCredits, currency: "credits" } : null;
+    }
+
+    return { rbac, creditBudget };
   }
 
   async update(

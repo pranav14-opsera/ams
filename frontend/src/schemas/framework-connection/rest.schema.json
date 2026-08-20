@@ -1,0 +1,49 @@
+{
+  "$id": "urn:ams:agent-connection-schema:generic_rest",
+  "title": "Generic REST Connection",
+  "description": "Connect any agent that exposes a plain REST API and a health-check endpoint.",
+  "type": "object",
+  "properties": {
+    "baseUrl": {
+      "type": "string",
+      "format": "uri",
+      "title": "Base URL",
+      "description": "The root URL your agent's REST API is reachable at.",
+      "x-order": 1,
+      "x-widget": "url"
+    },
+    "authMethod": {
+      "type": "string",
+      "title": "Authentication Method",
+      "description": "How AMS authenticates to your agent's API.",
+      "enum": ["api_key", "oauth", "hmac"],
+      "x-order": 2,
+      "x-widget": "select"
+    },
+    "healthCheckEndpoint": {
+      "type": "string",
+      "pattern": "^/",
+      "title": "Health Check Endpoint",
+      "description": "A relative path (e.g. /health) AMS can call to confirm the agent is reachable.",
+      "x-order": 3,
+      "x-widget": "text"
+    },
+    "telemetryWebhookUrl": {
+      "type": "string",
+      "format": "uri",
+      "title": "Telemetry Webhook URL",
+      "description": "Where AMS should deliver telemetry events for this agent.",
+      "x-order": 4,
+      "x-widget": "url"
+    },
+    "customHeaders": {
+      "type": "array",
+      "title": "Custom Headers",
+      "description": "Optional additional headers AMS should send with every request to this agent.",
+      "items": { "type": "object", "properties": { "key": { "type": "string" }, "value": { "type": "string" } }, "required": ["key", "value"] },
+      "x-order": 5,
+      "x-widget": "keyvalue"
+    }
+  },
+  "required": ["baseUrl", "authMethod", "healthCheckEndpoint", "telemetryWebhookUrl"]
+}
