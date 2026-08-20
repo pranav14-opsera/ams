@@ -97,6 +97,34 @@ test("cache hit deny at the atomic-decrement step (TOCTOU): peek looked fine but
   assert.equal(result.balanceAfter, 3);
 });
 
+test("WO-070: a denial with a zero/negative current balance carries hardCapReached: true", async () => {
+  const { cacheBreaker, engine } = buildRig();
+  cacheBreaker.balance = 0; // current balance is already zero — cost 10 -> denied
+
+  const result = await engine.checkAndConsume(baseRequest());
+  assert.equal(result.decision, "denied");
+  assert.equal(result.hardCapReached, true);
+});
+
+test("WO-070: a denial where the current balance is still positive (just insufficient for THIS cost) carries hardCapReached: false", async () => {
+  const { cacheBreaker, engine } = buildRig();
+  cacheBreaker.balance = 5; // positive, just less than the 10-credit cost
+
+  const result = await engine.checkAndConsume(baseRequest());
+  assert.equal(result.decision, "denied");
+  assert.equal(result.hardCapReached, false);
+});
+
+test("WO-070: an allowed decision never carries hardCapReached: true", async () => {
+  const { cacheBreaker, engine } = buildRig();
+  cacheBreaker.balance = 1000;
+  cacheBreaker.decrementResult = { outcome: "allowed", balance: 990 };
+
+  const result = await engine.checkAndConsume(baseRequest());
+  assert.equal(result.decision, "allowed");
+  assert.equal(result.hardCapReached, false);
+});
+
 test("fallthrough to ledger allow: projected balance lands within 5% of the hard cap, ledger confirms sufficient balance", async () => {
   const { rateMappingService, cacheBreaker, ledgerService, engine } = buildRig();
   rateMappingService.hardCap = 1000; // 5% buffer = 50 — projected balances at or below 50 are the "near the cap" danger zone
@@ -121,6 +149,18 @@ test("fallthrough to ledger deny: near the hard cap, but the real ledger balance
   assert.equal(result.decision, "denied");
   assert.equal(result.enforcementMode, "ledger");
   assert.equal(ledgerService.recorded.length, 0, "a denied fallthrough must never record a debit");
+  assert.equal(result.hardCapReached, false, "a still-positive real ledger balance (5) is not yet zero/negative");
+});
+
+test("WO-070: fallthrough to ledger deny with a real ledger balance already at zero carries hardCapReached: true", async () => {
+  const { rateMappingService, cacheBreaker, ledgerService, engine } = buildRig();
+  rateMappingService.hardCap = 1000;
+  cacheBreaker.balance = 55;
+  ledgerService.balance = { tenantId: "tenant-a", teamId: "team-1", netBalance: 0, transactionCount: 5, lastTransactionAt: new Date() };
+
+  const result = await engine.checkAndConsume(baseRequest());
+  assert.equal(result.decision, "denied");
+  assert.equal(result.hardCapReached, true);
 });
 
 test("cache miss: warms the cache from the real ledger balance, then proceeds through the normal decision tree", async () => {

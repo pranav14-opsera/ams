@@ -74,12 +74,23 @@ class FakeAuditService {
   }
 }
 
+class FakeRateMappingService {
+  public synced: Array<{ tenantId: string; teamId: string; hardCap: number | null }> = [];
+  public shouldFail = false;
+  async setHardCap(_client: unknown, tenantId: string, teamId: string, hardCap: number | null) {
+    if (this.shouldFail) throw new Error("simulated rate-mapping-service failure");
+    this.synced.push({ tenantId, teamId, hardCap });
+    return { id: "limit-1", tenantId, teamId, hardCap };
+  }
+}
+
 function buildRig() {
   const pool = new FakePool();
   const repository = new FakeRepository();
   const auditService = new FakeAuditService();
-  const service = new CreditBudgetService(pool as any, repository as any, auditService as any);
-  return { pool, repository, auditService, service };
+  const rateMappingService = new FakeRateMappingService();
+  const service = new CreditBudgetService(pool as any, repository as any, auditService as any, rateMappingService as any);
+  return { pool, repository, auditService, rateMappingService, service };
 }
 
 test("allocate: a request within the pool's remaining capacity succeeds and is audited", async () => {
@@ -163,4 +174,48 @@ test("projectedExhaustionDate is null when there's no recent consumption trend t
 
   const summary = await service.getTeamBudget(undefined, "tenant-a", "team-1", 8, 2026);
   assert.equal(summary.projectedExhaustionDate, null);
+});
+
+test("WO-070: allocating a hard cap for the CURRENT period syncs it into team_credit_limits (the metering engine's own canonical value)", async () => {
+  const { rateMappingService, service } = buildRig();
+  const now = new Date();
+  await service.allocate("tenant-a", "user-1", makeRequest({ teamId: "team-1", hardCap: 800, effectiveMonth: now.getUTCMonth() + 1, effectiveYear: now.getUTCFullYear() }));
+
+  assert.equal(rateMappingService.synced.length, 1);
+  assert.deepEqual(rateMappingService.synced[0], { tenantId: "tenant-a", teamId: "team-1", hardCap: 800 });
+});
+
+test("WO-070: allocating a NULL hard cap (removing it) also syncs the null into team_credit_limits", async () => {
+  const { rateMappingService, service } = buildRig();
+  const now = new Date();
+  await service.allocate("tenant-a", "user-1", makeRequest({ teamId: "team-1", hardCap: null, effectiveMonth: now.getUTCMonth() + 1, effectiveYear: now.getUTCFullYear() }));
+
+  assert.equal(rateMappingService.synced.length, 1);
+  assert.equal(rateMappingService.synced[0].hardCap, null);
+});
+
+test("WO-070: allocating a budget for a FUTURE period never touches the current, live team_credit_limits value", async () => {
+  const { rateMappingService, service } = buildRig();
+  await service.allocate("tenant-a", "user-1", makeRequest({ teamId: "team-1", hardCap: 800, effectiveMonth: 12, effectiveYear: 2099 }));
+
+  assert.equal(rateMappingService.synced.length, 0);
+});
+
+test("WO-070: without the optional rate-mapping service wired at all, allocation still works exactly as before (zero blast radius)", async () => {
+  const pool = new FakePool();
+  const repository = new FakeRepository();
+  const auditService = new FakeAuditService();
+  const service = new CreditBudgetService(pool as any, repository as any, auditService as any);
+
+  const budget = await service.allocate("tenant-a", "user-1", makeRequest());
+  assert.equal(budget.allocatedCredits, 1000);
+});
+
+test("WO-070: a hard-cap sync failure never fails the already-committed allocation itself", async () => {
+  const { rateMappingService, service } = buildRig();
+  rateMappingService.shouldFail = true;
+  const now = new Date();
+
+  const budget = await service.allocate("tenant-a", "user-1", makeRequest({ teamId: "team-1", hardCap: 800, effectiveMonth: now.getUTCMonth() + 1, effectiveYear: now.getUTCFullYear() }));
+  assert.equal(budget.allocatedCredits, 1000);
 });

@@ -1,8 +1,9 @@
-import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Inject, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import type { Pool, PoolClient } from "pg";
 import { PG_POOL } from "../../common/database/database.module";
 import { DataClassification } from "../../classification/data-classification.enum";
 import { AUDIT_SERVICE, type AuditServicePort } from "../../tenants/ports/audit-service.port";
+import { CreditRateMappingService } from "../credit-rate-mapping.service";
 import { CreditBudgetRepository } from "./credit-budget.repository";
 import type { AllocateBudgetRequest, CreditBudget, TeamBudgetSummary } from "./credit-budget.types";
 
@@ -22,10 +23,23 @@ function monthBounds(month: number, year: number): { start: Date; end: Date } {
  */
 @Injectable()
 export class CreditBudgetService {
+  private readonly logger = new Logger(CreditBudgetService.name);
+
   constructor(
     @Inject(PG_POOL) private readonly pool: Pool,
     private readonly repository: CreditBudgetRepository,
     @Inject(AUDIT_SERVICE) private readonly auditService: AuditServicePort,
+    /**
+     * Optional — WO-070 reconciles this WO's own `credit_budgets.hard_cap`
+     * (the finance-facing budget record) with WO-066's separate
+     * `team_credit_limits.hard_cap` (the metering engine's real-time
+     * near-cap buffer) by keeping the latter in sync with every
+     * allocation here, so there's a single canonical hard-cap value
+     * rather than two that can drift apart. Existing/test call sites
+     * that don't pass this simply never sync (same zero-blast-radius
+     * optional-DI convention used throughout this codebase).
+     */
+    private readonly rateMappingService?: CreditRateMappingService,
   ) {}
 
   async allocate(tenantId: string, actorId: string | null, request: AllocateBudgetRequest): Promise<CreditBudget> {
@@ -68,12 +82,34 @@ export class CreditBudgetService {
         })
         .catch(() => undefined);
 
+      await this.syncTeamHardCap(tenantId, request);
+
       return budget;
     } catch (err) {
       await scoped.query("ROLLBACK").catch(() => undefined);
       throw err;
     } finally {
       scoped.release();
+    }
+  }
+
+  /**
+   * WO-070: keeps WO-066's `team_credit_limits.hard_cap` (the real-time
+   * metering engine's own near-cap buffer) in sync with THIS record's
+   * `hard_cap` — the finance-facing canonical value — so the two never
+   * drift apart into two different "hard caps." Only synced for the
+   * CURRENT period: `team_credit_limits` has no period dimension at all
+   * (it's always "the current cap"), so allocating a future or past
+   * period's budget must never clobber what's live right now.
+   */
+  private async syncTeamHardCap(tenantId: string, request: AllocateBudgetRequest, now: Date = new Date()): Promise<void> {
+    if (!this.rateMappingService) return;
+    const isCurrentPeriod = request.effectiveMonth === now.getUTCMonth() + 1 && request.effectiveYear === now.getUTCFullYear();
+    if (!isCurrentPeriod) return;
+    try {
+      await this.rateMappingService.setHardCap(undefined, tenantId, request.teamId, request.hardCap);
+    } catch (err) {
+      this.logger.warn(`failed to sync team_credit_limits.hard_cap for team ${request.teamId} (tenant ${tenantId}) after budget allocation — the allocation itself already succeeded: ${err instanceof Error ? err.message : err}`);
     }
   }
 
