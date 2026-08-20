@@ -18,19 +18,33 @@ import { DashboardService } from "./dashboard.service";
 import { HealthCacheService } from "./health-cache.service";
 import { HealthDashboardRepository } from "./health-dashboard.repository";
 import { HealthMetricsPublisherService } from "./health-metrics-publisher.service";
+import { OrgUsageCreditsController } from "./org-usage/org-usage-credits.controller";
+import { OrgUsageCacheService } from "./org-usage/org-usage-cache.service";
+import { OrgUsageDashboardController } from "./org-usage/org-usage-dashboard.controller";
+import { OrgUsageDashboardRepository } from "./org-usage/org-usage-dashboard.repository";
+import { OrgUsageDashboardService } from "./org-usage/org-usage-dashboard.service";
+import { OrgUsagePublisherService } from "./org-usage/org-usage-publisher.service";
 
 // AUDIT_SERVICE isn't exported from a shared module in this codebase —
 // every module that needs it re-provides its own PostgresAuditService
 // binding (see subscription.module.ts, audit-retention.module.ts, etc.).
 @Module({
   imports: [RbacModule, PhiScrubberModule, WebsocketGatewayModule, TraceModule, AnomalyDetectionModule, QualityScoreModule, DriftDetectionModule],
-  controllers: [DashboardController, AgentHealthDetailController],
+  controllers: [DashboardController, AgentHealthDetailController, OrgUsageDashboardController, OrgUsageCreditsController],
   providers: [
     HealthDashboardRepository,
     HealthCacheService,
     { provide: AUDIT_SERVICE, useClass: PostgresAuditService },
     DashboardService,
     HealthMetricsPublisherService,
+    // WO-074: org-wide usage tracking dashboard — new files under
+    // ./org-usage/, re-provided here rather than a separate NestJS
+    // module (same "just re-provide it" convention this module already
+    // uses for AgentHealthDetailService's own dependencies below).
+    OrgUsageDashboardRepository,
+    OrgUsageCacheService,
+    OrgUsageDashboardService,
+    OrgUsagePublisherService,
     // WO-057: single-agent drill-down — re-provided here rather than
     // importing AgentsModule/AdaptersModule wholesale (both repositories
     // depend only on the global PG_POOL, same "just re-provide the
@@ -40,6 +54,6 @@ import { HealthMetricsPublisherService } from "./health-metrics-publisher.servic
     AgentStateTransitionsRepository,
     AgentHealthDetailService,
   ],
-  exports: [HealthDashboardRepository, DashboardService, HealthMetricsPublisherService],
+  exports: [HealthDashboardRepository, DashboardService, HealthMetricsPublisherService, OrgUsageDashboardRepository, OrgUsageDashboardService, OrgUsagePublisherService],
 })
 export class DashboardModule {}

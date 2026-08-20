@@ -4,6 +4,7 @@ import { AlertsGateway } from "./gateways/alerts.gateway";
 import { ApprovalsGateway } from "./gateways/approvals.gateway";
 import { DashboardGateway } from "./gateways/dashboard.gateway";
 import { HealthGateway } from "./gateways/health.gateway";
+import { OrgUsageGateway } from "./gateways/org-usage.gateway";
 import { ConnectionRegistryService } from "./connection-registry.service";
 import { MessageBatcherService } from "./message-batcher.service";
 import { RedisPubSubService } from "./redis-pubsub.service";
@@ -16,6 +17,7 @@ import { WsMetricsService } from "./ws-metrics.service";
   providers: [
     DashboardGateway,
     HealthGateway,
+    OrgUsageGateway,
     AlertsGateway,
     ApprovalsGateway,
     ConnectionRegistryService,
