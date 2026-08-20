@@ -3,12 +3,16 @@ import type { Pool, PoolClient } from "pg";
 import { PG_POOL } from "../common/database/database.module";
 import type { EnvelopeCiphertext } from "../tenants/ports/kms-service.port";
 import type { AgentFramework } from "./dto/create-agent.dto";
-import type { AgentLifecycleStatus } from "./dto/list-agents-query.dto";
+import type { AgentLifecycleStatus, AgentSortField, SortOrder } from "./dto/list-agents-query.dto";
 
 export interface AgentRow {
   id: string;
   tenant_id: string;
   team_id: string | null;
+  // Populated by a LEFT JOIN against `teams` in findAll only — every other
+  // repository method here returns a bare agents row and leaves this
+  // undefined (not present on the underlying table itself).
+  team_name?: string | null;
   name: string;
   framework: AgentFramework;
   lifecycle_status: AgentLifecycleStatus;
@@ -31,12 +35,35 @@ export interface AgentRow {
 
 export interface AgentListFilters {
   teamId?: string;
-  framework?: AgentFramework;
-  lifecycleStatus?: AgentLifecycleStatus;
+  // Single-value form kept alongside the array form: BulkLifecycleService's
+  // own filter resolution (resolveAgentIds) still passes a bare single
+  // value here, unrelated to WO-079's own multi-select AC — both call
+  // shapes are normalized to an array internally (see toFilterArray below).
+  framework?: AgentFramework | AgentFramework[];
+  lifecycleStatus?: AgentLifecycleStatus | AgentLifecycleStatus[];
   name?: string;
   limit: number;
   offset: number;
+  sortBy?: AgentSortField;
+  sortOrder?: SortOrder;
 }
+
+function toFilterArray<T>(value: T | T[] | undefined): T[] | undefined {
+  if (value === undefined) return undefined;
+  return Array.isArray(value) ? value : [value];
+}
+
+// WO-079: whitelisted column mapping — sortBy is validated by
+// ListAgentsQueryDto's own @IsIn(AGENT_SORT_FIELDS), but this map is the
+// actual defense against SQL injection (a raw column string is never
+// interpolated; only a value looked up from this fixed table is).
+const SORT_COLUMNS: Record<AgentSortField, string> = {
+  name: "agents.name",
+  framework: "agents.framework",
+  lifecycleStatus: "agents.lifecycle_status",
+  // No dedicated heartbeat/last-seen column exists yet (see agent.mapper.ts) — `updated_at` is the closest real proxy, and it's what AgentResource.lastSeen is itself derived from, so sorting by it is consistent with what the client displays.
+  lastSeen: "agents.updated_at",
+};
 
 @Injectable()
 export class AgentsRepository {
@@ -85,31 +112,45 @@ export class AgentsRepository {
 
   async findAll(client: Pool | PoolClient | undefined, tenantId: string, filters: AgentListFilters): Promise<{ rows: AgentRow[]; total: number }> {
     const executor = client ?? this.pool;
-    const conditions = ["tenant_id = $1"];
+    const conditions = ["agents.tenant_id = $1"];
     const params: unknown[] = [tenantId];
 
     if (filters.teamId) {
       params.push(filters.teamId);
-      conditions.push(`team_id = $${params.length}`);
+      conditions.push(`agents.team_id = $${params.length}`);
     }
-    if (filters.framework) {
-      params.push(filters.framework);
-      conditions.push(`framework = $${params.length}`);
+    const frameworks = toFilterArray(filters.framework);
+    if (frameworks && frameworks.length > 0) {
+      params.push(frameworks);
+      conditions.push(`agents.framework = ANY($${params.length}::text[])`);
     }
-    if (filters.lifecycleStatus) {
-      params.push(filters.lifecycleStatus);
-      conditions.push(`lifecycle_status = $${params.length}`);
+    const lifecycleStatuses = toFilterArray(filters.lifecycleStatus);
+    if (lifecycleStatuses && lifecycleStatuses.length > 0) {
+      params.push(lifecycleStatuses);
+      conditions.push(`agents.lifecycle_status = ANY($${params.length}::text[])`);
     }
     if (filters.name) {
       params.push(`%${filters.name}%`);
-      conditions.push(`name ILIKE $${params.length}`);
+      conditions.push(`agents.name ILIKE $${params.length}`);
     }
 
     const whereClause = conditions.join(" AND ");
     const countResult = await executor.query<{ count: string }>(`SELECT count(*) FROM agents WHERE ${whereClause}`, params);
 
+    // AC (WO-079): server-side sort by Name/Framework/Status/Last Seen with
+    // a stable secondary key so equally-ranked rows don't reorder between
+    // pages as the underlying data changes between requests.
+    const sortColumn = filters.sortBy ? SORT_COLUMNS[filters.sortBy] : "agents.created_at";
+    const sortDirection = filters.sortOrder === "asc" ? "ASC" : "DESC";
+    const orderClause = filters.sortBy ? `${sortColumn} ${sortDirection}, agents.id ASC` : `${sortColumn} DESC, agents.id ASC`;
+
     const rows = await executor.query<AgentRow>(
-      `SELECT * FROM agents WHERE ${whereClause} ORDER BY created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+      `SELECT agents.*, teams.name AS team_name
+       FROM agents
+       LEFT JOIN teams ON teams.id = agents.team_id
+       WHERE ${whereClause}
+       ORDER BY ${orderClause}
+       LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
       [...params, filters.limit, filters.offset],
     );
 

@@ -1,0 +1,687 @@
+{
+  "description": "WO-079 Agent Registry fixtures: 55 agents spanning all 4 frameworks and all 5 lifecycle statuses (20 combinations, repeated to reach 55+), used by unit/integration tests and MSW-style fetch mocks.",
+  "records": [
+    {
+      "id": "a0001aaaa-0000-0000-0000-000000000000",
+      "name": "langchain-agent-1",
+      "framework": "langchain",
+      "status": "connecting",
+      "team": null,
+      "lastSeen": "2026-08-01T00:00:00.000Z",
+      "healthScore": null,
+      "qualityScore": null
+    },
+    {
+      "id": "a0002aaaa-0000-0000-0000-000000000000",
+      "name": "langchain-agent-2",
+      "framework": "langchain",
+      "status": "active",
+      "team": {
+        "id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+        "name": "Billing"
+      },
+      "lastSeen": "2026-08-02T01:00:00.000Z",
+      "healthScore": null,
+      "qualityScore": null
+    },
+    {
+      "id": "a0003aaaa-0000-0000-0000-000000000000",
+      "name": "langchain-agent-3",
+      "framework": "langchain",
+      "status": "paused",
+      "team": {
+        "id": "cccccccc-cccc-cccc-cccc-cccccccccccc",
+        "name": "Operations"
+      },
+      "lastSeen": "2026-08-03T02:00:00.000Z",
+      "healthScore": null,
+      "qualityScore": null
+    },
+    {
+      "id": "a0004aaaa-0000-0000-0000-000000000000",
+      "name": "langchain-agent-4",
+      "framework": "langchain",
+      "status": "retired",
+      "team": {
+        "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+        "name": "Support"
+      },
+      "lastSeen": "2026-08-04T03:00:00.000Z",
+      "healthScore": null,
+      "qualityScore": null
+    },
+    {
+      "id": "a0005aaaa-0000-0000-0000-000000000000",
+      "name": "langchain-agent-5",
+      "framework": "langchain",
+      "status": "decommissioned",
+      "team": {
+        "id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+        "name": "Billing"
+      },
+      "lastSeen": "2026-08-05T04:00:00.000Z",
+      "healthScore": null,
+      "qualityScore": null
+    },
+    {
+      "id": "a0006aaaa-0000-0000-0000-000000000000",
+      "name": "crewai-agent-6",
+      "framework": "crewai",
+      "status": "connecting",
+      "team": null,
+      "lastSeen": "2026-08-06T05:00:00.000Z",
+      "healthScore": null,
+      "qualityScore": null
+    },
+    {
+      "id": "a0007aaaa-0000-0000-0000-000000000000",
+      "name": "crewai-agent-7",
+      "framework": "crewai",
+      "status": "active",
+      "team": {
+        "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+        "name": "Support"
+      },
+      "lastSeen": "2026-08-07T06:00:00.000Z",
+      "healthScore": null,
+      "qualityScore": null
+    },
+    {
+      "id": "a0008aaaa-0000-0000-0000-000000000000",
+      "name": "crewai-agent-8",
+      "framework": "crewai",
+      "status": "paused",
+      "team": {
+        "id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+        "name": "Billing"
+      },
+      "lastSeen": "2026-08-08T07:00:00.000Z",
+      "healthScore": null,
+      "qualityScore": null
+    },
+    {
+      "id": "a0009aaaa-0000-0000-0000-000000000000",
+      "name": "crewai-agent-9",
+      "framework": "crewai",
+      "status": "retired",
+      "team": {
+        "id": "cccccccc-cccc-cccc-cccc-cccccccccccc",
+        "name": "Operations"
+      },
+      "lastSeen": "2026-08-09T08:00:00.000Z",
+      "healthScore": null,
+      "qualityScore": null
+    },
+    {
+      "id": "a0010aaaa-0000-0000-0000-000000000000",
+      "name": "crewai-agent-10",
+      "framework": "crewai",
+      "status": "decommissioned",
+      "team": {
+        "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+        "name": "Support"
+      },
+      "lastSeen": "2026-08-10T09:00:00.000Z",
+      "healthScore": null,
+      "qualityScore": null
+    },
+    {
+      "id": "a0011aaaa-0000-0000-0000-000000000000",
+      "name": "autogen-agent-11",
+      "framework": "autogen",
+      "status": "connecting",
+      "team": null,
+      "lastSeen": "2026-08-11T10:00:00.000Z",
+      "healthScore": null,
+      "qualityScore": null
+    },
+    {
+      "id": "a0012aaaa-0000-0000-0000-000000000000",
+      "name": "autogen-agent-12",
+      "framework": "autogen",
+      "status": "active",
+      "team": {
+        "id": "cccccccc-cccc-cccc-cccc-cccccccccccc",
+        "name": "Operations"
+      },
+      "lastSeen": "2026-08-12T11:00:00.000Z",
+      "healthScore": null,
+      "qualityScore": null
+    },
+    {
+      "id": "a0013aaaa-0000-0000-0000-000000000000",
+      "name": "autogen-agent-13",
+      "framework": "autogen",
+      "status": "paused",
+      "team": {
+        "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+        "name": "Support"
+      },
+      "lastSeen": "2026-08-13T12:00:00.000Z",
+      "healthScore": null,
+      "qualityScore": null
+    },
+    {
+      "id": "a0014aaaa-0000-0000-0000-000000000000",
+      "name": "autogen-agent-14",
+      "framework": "autogen",
+      "status": "retired",
+      "team": {
+        "id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+        "name": "Billing"
+      },
+      "lastSeen": "2026-08-14T13:00:00.000Z",
+      "healthScore": null,
+      "qualityScore": null
+    },
+    {
+      "id": "a0015aaaa-0000-0000-0000-000000000000",
+      "name": "autogen-agent-15",
+      "framework": "autogen",
+      "status": "decommissioned",
+      "team": {
+        "id": "cccccccc-cccc-cccc-cccc-cccccccccccc",
+        "name": "Operations"
+      },
+      "lastSeen": "2026-08-15T14:00:00.000Z",
+      "healthScore": null,
+      "qualityScore": null
+    },
+    {
+      "id": "a0016aaaa-0000-0000-0000-000000000000",
+      "name": "generic_rest-agent-16",
+      "framework": "generic_rest",
+      "status": "connecting",
+      "team": null,
+      "lastSeen": "2026-08-16T15:00:00.000Z",
+      "healthScore": null,
+      "qualityScore": null
+    },
+    {
+      "id": "a0017aaaa-0000-0000-0000-000000000000",
+      "name": "generic_rest-agent-17",
+      "framework": "generic_rest",
+      "status": "active",
+      "team": {
+        "id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+        "name": "Billing"
+      },
+      "lastSeen": "2026-08-17T16:00:00.000Z",
+      "healthScore": null,
+      "qualityScore": null
+    },
+    {
+      "id": "a0018aaaa-0000-0000-0000-000000000000",
+      "name": "generic_rest-agent-18",
+      "framework": "generic_rest",
+      "status": "paused",
+      "team": {
+        "id": "cccccccc-cccc-cccc-cccc-cccccccccccc",
+        "name": "Operations"
+      },
+      "lastSeen": "2026-08-18T17:00:00.000Z",
+      "healthScore": null,
+      "qualityScore": null
+    },
+    {
+      "id": "a0019aaaa-0000-0000-0000-000000000000",
+      "name": "generic_rest-agent-19",
+      "framework": "generic_rest",
+      "status": "retired",
+      "team": {
+        "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+        "name": "Support"
+      },
+      "lastSeen": "2026-08-19T18:00:00.000Z",
+      "healthScore": null,
+      "qualityScore": null
+    },
+    {
+      "id": "a0020aaaa-0000-0000-0000-000000000000",
+      "name": "generic_rest-agent-20",
+      "framework": "generic_rest",
+      "status": "decommissioned",
+      "team": {
+        "id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+        "name": "Billing"
+      },
+      "lastSeen": "2026-08-01T19:00:00.000Z",
+      "healthScore": null,
+      "qualityScore": null
+    },
+    {
+      "id": "a0021aaaa-0000-0000-0000-000000000000",
+      "name": "langchain-agent-21",
+      "framework": "langchain",
+      "status": "connecting",
+      "team": null,
+      "lastSeen": "2026-08-02T20:00:00.000Z",
+      "healthScore": null,
+      "qualityScore": null
+    },
+    {
+      "id": "a0022aaaa-0000-0000-0000-000000000000",
+      "name": "langchain-agent-22",
+      "framework": "langchain",
+      "status": "active",
+      "team": {
+        "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+        "name": "Support"
+      },
+      "lastSeen": "2026-08-03T21:00:00.000Z",
+      "healthScore": null,
+      "qualityScore": null
+    },
+    {
+      "id": "a0023aaaa-0000-0000-0000-000000000000",
+      "name": "langchain-agent-23",
+      "framework": "langchain",
+      "status": "paused",
+      "team": {
+        "id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+        "name": "Billing"
+      },
+      "lastSeen": "2026-08-04T22:00:00.000Z",
+      "healthScore": null,
+      "qualityScore": null
+    },
+    {
+      "id": "a0024aaaa-0000-0000-0000-000000000000",
+      "name": "langchain-agent-24",
+      "framework": "langchain",
+      "status": "retired",
+      "team": {
+        "id": "cccccccc-cccc-cccc-cccc-cccccccccccc",
+        "name": "Operations"
+      },
+      "lastSeen": "2026-08-05T00:00:00.000Z",
+      "healthScore": null,
+      "qualityScore": null
+    },
+    {
+      "id": "a0025aaaa-0000-0000-0000-000000000000",
+      "name": "langchain-agent-25",
+      "framework": "langchain",
+      "status": "decommissioned",
+      "team": {
+        "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+        "name": "Support"
+      },
+      "lastSeen": "2026-08-06T01:00:00.000Z",
+      "healthScore": null,
+      "qualityScore": null
+    },
+    {
+      "id": "a0026aaaa-0000-0000-0000-000000000000",
+      "name": "crewai-agent-26",
+      "framework": "crewai",
+      "status": "connecting",
+      "team": null,
+      "lastSeen": "2026-08-07T02:00:00.000Z",
+      "healthScore": null,
+      "qualityScore": null
+    },
+    {
+      "id": "a0027aaaa-0000-0000-0000-000000000000",
+      "name": "crewai-agent-27",
+      "framework": "crewai",
+      "status": "active",
+      "team": {
+        "id": "cccccccc-cccc-cccc-cccc-cccccccccccc",
+        "name": "Operations"
+      },
+      "lastSeen": "2026-08-08T03:00:00.000Z",
+      "healthScore": null,
+      "qualityScore": null
+    },
+    {
+      "id": "a0028aaaa-0000-0000-0000-000000000000",
+      "name": "crewai-agent-28",
+      "framework": "crewai",
+      "status": "paused",
+      "team": {
+        "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+        "name": "Support"
+      },
+      "lastSeen": "2026-08-09T04:00:00.000Z",
+      "healthScore": null,
+      "qualityScore": null
+    },
+    {
+      "id": "a0029aaaa-0000-0000-0000-000000000000",
+      "name": "crewai-agent-29",
+      "framework": "crewai",
+      "status": "retired",
+      "team": {
+        "id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+        "name": "Billing"
+      },
+      "lastSeen": "2026-08-10T05:00:00.000Z",
+      "healthScore": null,
+      "qualityScore": null
+    },
+    {
+      "id": "a0030aaaa-0000-0000-0000-000000000000",
+      "name": "crewai-agent-30",
+      "framework": "crewai",
+      "status": "decommissioned",
+      "team": {
+        "id": "cccccccc-cccc-cccc-cccc-cccccccccccc",
+        "name": "Operations"
+      },
+      "lastSeen": "2026-08-11T06:00:00.000Z",
+      "healthScore": null,
+      "qualityScore": null
+    },
+    {
+      "id": "a0031aaaa-0000-0000-0000-000000000000",
+      "name": "autogen-agent-31",
+      "framework": "autogen",
+      "status": "connecting",
+      "team": null,
+      "lastSeen": "2026-08-12T07:00:00.000Z",
+      "healthScore": null,
+      "qualityScore": null
+    },
+    {
+      "id": "a0032aaaa-0000-0000-0000-000000000000",
+      "name": "autogen-agent-32",
+      "framework": "autogen",
+      "status": "active",
+      "team": {
+        "id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+        "name": "Billing"
+      },
+      "lastSeen": "2026-08-13T08:00:00.000Z",
+      "healthScore": null,
+      "qualityScore": null
+    },
+    {
+      "id": "a0033aaaa-0000-0000-0000-000000000000",
+      "name": "autogen-agent-33",
+      "framework": "autogen",
+      "status": "paused",
+      "team": {
+        "id": "cccccccc-cccc-cccc-cccc-cccccccccccc",
+        "name": "Operations"
+      },
+      "lastSeen": "2026-08-14T09:00:00.000Z",
+      "healthScore": null,
+      "qualityScore": null
+    },
+    {
+      "id": "a0034aaaa-0000-0000-0000-000000000000",
+      "name": "autogen-agent-34",
+      "framework": "autogen",
+      "status": "retired",
+      "team": {
+        "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+        "name": "Support"
+      },
+      "lastSeen": "2026-08-15T10:00:00.000Z",
+      "healthScore": null,
+      "qualityScore": null
+    },
+    {
+      "id": "a0035aaaa-0000-0000-0000-000000000000",
+      "name": "autogen-agent-35",
+      "framework": "autogen",
+      "status": "decommissioned",
+      "team": {
+        "id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+        "name": "Billing"
+      },
+      "lastSeen": "2026-08-16T11:00:00.000Z",
+      "healthScore": null,
+      "qualityScore": null
+    },
+    {
+      "id": "a0036aaaa-0000-0000-0000-000000000000",
+      "name": "generic_rest-agent-36",
+      "framework": "generic_rest",
+      "status": "connecting",
+      "team": null,
+      "lastSeen": "2026-08-17T12:00:00.000Z",
+      "healthScore": null,
+      "qualityScore": null
+    },
+    {
+      "id": "a0037aaaa-0000-0000-0000-000000000000",
+      "name": "generic_rest-agent-37",
+      "framework": "generic_rest",
+      "status": "active",
+      "team": {
+        "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+        "name": "Support"
+      },
+      "lastSeen": "2026-08-18T13:00:00.000Z",
+      "healthScore": null,
+      "qualityScore": null
+    },
+    {
+      "id": "a0038aaaa-0000-0000-0000-000000000000",
+      "name": "generic_rest-agent-38",
+      "framework": "generic_rest",
+      "status": "paused",
+      "team": {
+        "id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+        "name": "Billing"
+      },
+      "lastSeen": "2026-08-19T14:00:00.000Z",
+      "healthScore": null,
+      "qualityScore": null
+    },
+    {
+      "id": "a0039aaaa-0000-0000-0000-000000000000",
+      "name": "generic_rest-agent-39",
+      "framework": "generic_rest",
+      "status": "retired",
+      "team": {
+        "id": "cccccccc-cccc-cccc-cccc-cccccccccccc",
+        "name": "Operations"
+      },
+      "lastSeen": "2026-08-01T15:00:00.000Z",
+      "healthScore": null,
+      "qualityScore": null
+    },
+    {
+      "id": "a0040aaaa-0000-0000-0000-000000000000",
+      "name": "generic_rest-agent-40",
+      "framework": "generic_rest",
+      "status": "decommissioned",
+      "team": {
+        "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+        "name": "Support"
+      },
+      "lastSeen": "2026-08-02T16:00:00.000Z",
+      "healthScore": null,
+      "qualityScore": null
+    },
+    {
+      "id": "a0041aaaa-0000-0000-0000-000000000000",
+      "name": "langchain-agent-41",
+      "framework": "langchain",
+      "status": "connecting",
+      "team": null,
+      "lastSeen": "2026-08-03T17:00:00.000Z",
+      "healthScore": null,
+      "qualityScore": null
+    },
+    {
+      "id": "a0042aaaa-0000-0000-0000-000000000000",
+      "name": "langchain-agent-42",
+      "framework": "langchain",
+      "status": "active",
+      "team": {
+        "id": "cccccccc-cccc-cccc-cccc-cccccccccccc",
+        "name": "Operations"
+      },
+      "lastSeen": "2026-08-04T18:00:00.000Z",
+      "healthScore": null,
+      "qualityScore": null
+    },
+    {
+      "id": "a0043aaaa-0000-0000-0000-000000000000",
+      "name": "langchain-agent-43",
+      "framework": "langchain",
+      "status": "paused",
+      "team": {
+        "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+        "name": "Support"
+      },
+      "lastSeen": "2026-08-05T19:00:00.000Z",
+      "healthScore": null,
+      "qualityScore": null
+    },
+    {
+      "id": "a0044aaaa-0000-0000-0000-000000000000",
+      "name": "langchain-agent-44",
+      "framework": "langchain",
+      "status": "retired",
+      "team": {
+        "id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+        "name": "Billing"
+      },
+      "lastSeen": "2026-08-06T20:00:00.000Z",
+      "healthScore": null,
+      "qualityScore": null
+    },
+    {
+      "id": "a0045aaaa-0000-0000-0000-000000000000",
+      "name": "langchain-agent-45",
+      "framework": "langchain",
+      "status": "decommissioned",
+      "team": {
+        "id": "cccccccc-cccc-cccc-cccc-cccccccccccc",
+        "name": "Operations"
+      },
+      "lastSeen": "2026-08-07T21:00:00.000Z",
+      "healthScore": null,
+      "qualityScore": null
+    },
+    {
+      "id": "a0046aaaa-0000-0000-0000-000000000000",
+      "name": "crewai-agent-46",
+      "framework": "crewai",
+      "status": "connecting",
+      "team": null,
+      "lastSeen": "2026-08-08T22:00:00.000Z",
+      "healthScore": null,
+      "qualityScore": null
+    },
+    {
+      "id": "a0047aaaa-0000-0000-0000-000000000000",
+      "name": "crewai-agent-47",
+      "framework": "crewai",
+      "status": "active",
+      "team": {
+        "id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+        "name": "Billing"
+      },
+      "lastSeen": "2026-08-09T00:00:00.000Z",
+      "healthScore": null,
+      "qualityScore": null
+    },
+    {
+      "id": "a0048aaaa-0000-0000-0000-000000000000",
+      "name": "crewai-agent-48",
+      "framework": "crewai",
+      "status": "paused",
+      "team": {
+        "id": "cccccccc-cccc-cccc-cccc-cccccccccccc",
+        "name": "Operations"
+      },
+      "lastSeen": "2026-08-10T01:00:00.000Z",
+      "healthScore": null,
+      "qualityScore": null
+    },
+    {
+      "id": "a0049aaaa-0000-0000-0000-000000000000",
+      "name": "crewai-agent-49",
+      "framework": "crewai",
+      "status": "retired",
+      "team": {
+        "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+        "name": "Support"
+      },
+      "lastSeen": "2026-08-11T02:00:00.000Z",
+      "healthScore": null,
+      "qualityScore": null
+    },
+    {
+      "id": "a0050aaaa-0000-0000-0000-000000000000",
+      "name": "crewai-agent-50",
+      "framework": "crewai",
+      "status": "decommissioned",
+      "team": {
+        "id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+        "name": "Billing"
+      },
+      "lastSeen": "2026-08-12T03:00:00.000Z",
+      "healthScore": null,
+      "qualityScore": null
+    },
+    {
+      "id": "a0051aaaa-0000-0000-0000-000000000000",
+      "name": "autogen-agent-51",
+      "framework": "autogen",
+      "status": "connecting",
+      "team": null,
+      "lastSeen": "2026-08-13T04:00:00.000Z",
+      "healthScore": null,
+      "qualityScore": null
+    },
+    {
+      "id": "a0052aaaa-0000-0000-0000-000000000000",
+      "name": "autogen-agent-52",
+      "framework": "autogen",
+      "status": "active",
+      "team": {
+        "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+        "name": "Support"
+      },
+      "lastSeen": "2026-08-14T05:00:00.000Z",
+      "healthScore": null,
+      "qualityScore": null
+    },
+    {
+      "id": "a0053aaaa-0000-0000-0000-000000000000",
+      "name": "autogen-agent-53",
+      "framework": "autogen",
+      "status": "paused",
+      "team": {
+        "id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+        "name": "Billing"
+      },
+      "lastSeen": "2026-08-15T06:00:00.000Z",
+      "healthScore": null,
+      "qualityScore": null
+    },
+    {
+      "id": "a0054aaaa-0000-0000-0000-000000000000",
+      "name": "autogen-agent-54",
+      "framework": "autogen",
+      "status": "retired",
+      "team": {
+        "id": "cccccccc-cccc-cccc-cccc-cccccccccccc",
+        "name": "Operations"
+      },
+      "lastSeen": "2026-08-16T07:00:00.000Z",
+      "healthScore": null,
+      "qualityScore": null
+    },
+    {
+      "id": "a0055aaaa-0000-0000-0000-000000000000",
+      "name": "autogen-agent-55",
+      "framework": "autogen",
+      "status": "decommissioned",
+      "team": {
+        "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+        "name": "Support"
+      },
+      "lastSeen": "2026-08-17T08:00:00.000Z",
+      "healthScore": null,
+      "qualityScore": null
+    }
+  ]
+}

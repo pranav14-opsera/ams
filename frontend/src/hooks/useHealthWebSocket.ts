@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRealtimeUpdates } from "@/hooks/useRealtimeUpdates";
 import type { ConnectionState } from "@/types/websocket";
 import type { FleetHealthResult } from "@/types/dashboard";
@@ -14,6 +14,11 @@ export interface UseHealthWebSocketResult {
   isStale: boolean;
 }
 
+/** A genuine fleet-health snapshot (HealthMetricsPublisherService) never carries a `type` discriminant — only WO-079's shape-tagged `agent_status_update` messages do, sharing this same "health" channel (see useAgentHealthSocket's own doc comment on why). */
+function isFleetHealthSnapshot(payload: unknown): payload is FleetHealthResult {
+  return typeof payload === "object" && payload !== null && !("type" in payload);
+}
+
 /**
  * Thin wrapper over useRealtimeUpdates("health") (WO-054/055's own
  * connection/batching/reconnect infrastructure already covers auto-
@@ -22,9 +27,22 @@ export interface UseHealthWebSocketResult {
  * channel's payload as FleetHealthResult, and flagging staleness when no
  * update has arrived within this dashboard's own 30-second freshness
  * target.
+ *
+ * WO-079 added a second, shape-tagged message kind
+ * (`agent_status_update`) onto this SAME channel — `useRealtimeUpdates`
+ * keys its "latest" store slot purely by channel name, so without
+ * filtering, this hook's own `latest` would occasionally become that
+ * other message shape (whichever arrived last in a 100ms batch window)
+ * instead of a real snapshot, breaking every consumer of `latest.agents`.
+ * `onUpdate` here maintains this hook's OWN locally-filtered state
+ * instead of trusting the shared store's raw `latest`.
  */
 export function useHealthWebSocket(): UseHealthWebSocketResult {
-  const { connectionState, latest } = useRealtimeUpdates<FleetHealthResult>("health");
+  const [latest, setLatest] = useState<FleetHealthResult | undefined>(undefined);
+  const onUpdate = useCallback((payload: unknown) => {
+    if (isFleetHealthSnapshot(payload)) setLatest(payload);
+  }, []);
+  const { connectionState } = useRealtimeUpdates<unknown>("health", onUpdate);
   const [isStale, setIsStale] = useState(false);
 
   useEffect(() => {
