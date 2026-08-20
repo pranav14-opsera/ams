@@ -1,0 +1,10 @@
+{
+  "totalCount": 3,
+  "successCount": 3,
+  "failureCount": 0,
+  "results": [
+    { "agentId": "a0001aaaa-0000-0000-0000-000000000000", "status": "success", "previousStatus": "active", "newStatus": "retired", "warning": null, "error": null },
+    { "agentId": "a0002aaaa-0000-0000-0000-000000000000", "status": "success", "previousStatus": "active", "newStatus": "retired", "warning": null, "error": null },
+    { "agentId": "a0003aaaa-0000-0000-0000-000000000000", "status": "success", "previousStatus": "active", "newStatus": "retired", "warning": null, "error": null }
+  ]
+}

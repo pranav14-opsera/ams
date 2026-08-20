@@ -156,6 +156,85 @@ describe("AgentRegistryTable", () => {
     expect(liveRegion).not.toBeNull();
   });
 
+  it("renders an action menu for an agent with valid lifecycle actions when onSelectAction is provided", async () => {
+    render(
+      <AgentRegistryTable
+        agents={[agent({ status: "active" })]}
+        sort={{ sortBy: "name", sortOrder: "asc" }}
+        onSortChange={vi.fn()}
+        selectedIds={new Set()}
+        onToggleRow={vi.fn()}
+        onToggleAllOnPage={vi.fn()}
+        onSelectAction={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "Actions for Invoice Bot" })).toBeInTheDocument();
+  });
+
+  it("renders no action menu for a Connecting agent even when onSelectAction is provided", () => {
+    render(
+      <AgentRegistryTable
+        agents={[agent({ status: "connecting" })]}
+        sort={{ sortBy: "name", sortOrder: "asc" }}
+        onSortChange={vi.fn()}
+        selectedIds={new Set()}
+        onToggleRow={vi.fn()}
+        onToggleAllOnPage={vi.fn()}
+        onSelectAction={vi.fn()}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: /Actions for/ })).not.toBeInTheDocument();
+  });
+
+  it("omits the action menu entirely when onSelectAction is not provided", () => {
+    render(
+      <AgentRegistryTable
+        agents={[agent({ status: "active" })]}
+        sort={{ sortBy: "name", sortOrder: "asc" }}
+        onSortChange={vi.fn()}
+        selectedIds={new Set()}
+        onToggleRow={vi.fn()}
+        onToggleAllOnPage={vi.fn()}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: /Actions for/ })).not.toBeInTheDocument();
+  });
+
+  it("calls onSelectAction with the agent and chosen action when a menu item is selected", async () => {
+    const onSelectAction = vi.fn();
+    render(
+      <AgentRegistryTable
+        agents={[agent({ status: "active" })]}
+        sort={{ sortBy: "name", sortOrder: "asc" }}
+        onSortChange={vi.fn()}
+        selectedIds={new Set()}
+        onToggleRow={vi.fn()}
+        onToggleAllOnPage={vi.fn()}
+        onSelectAction={onSelectAction}
+      />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Actions for Invoice Bot" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: /Pause/ }));
+    expect(onSelectAction).toHaveBeenCalledWith(agent({ status: "active" }), { name: "pause", label: "Pause", targetStatus: "paused" });
+  });
+
+  it("shows a transitioning spinner (and no menu) for a row whose id is in transitioningIds", () => {
+    render(
+      <AgentRegistryTable
+        agents={[agent({ id: "a1", status: "active" })]}
+        sort={{ sortBy: "name", sortOrder: "asc" }}
+        onSortChange={vi.fn()}
+        selectedIds={new Set()}
+        onToggleRow={vi.fn()}
+        onToggleAllOnPage={vi.fn()}
+        onSelectAction={vi.fn()}
+        transitioningIds={new Set(["a1"])}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: /Actions for/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("status", { name: "Invoice Bot is transitioning" })).toBeInTheDocument();
+  });
+
   it("renders every row within a table with proper row roles (keyboard/screen-reader navigable structure)", () => {
     render(
       <AgentRegistryTable

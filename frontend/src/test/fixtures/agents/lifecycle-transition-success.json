@@ -1,0 +1,9 @@
+{
+  "id": "10000000-0000-0000-0000-000000000002",
+  "name": "active-bot",
+  "framework": "langchain",
+  "lifecycleStatus": "paused",
+  "team": { "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", "name": "Support" },
+  "lastSeen": "2026-08-20T10:05:00.000Z",
+  "warning": null
+}

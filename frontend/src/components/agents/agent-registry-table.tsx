@@ -1,9 +1,11 @@
 "use client";
 
 import { ChevronDown, ChevronUp } from "lucide-react";
+import { AgentActionMenu } from "@/components/agents/agent-action-menu";
 import { AgentStatusBadge } from "@/components/agents/agent-status-badge";
 import { FrameworkBadge } from "@/components/agents/framework-badge";
 import { cn } from "@/lib/utils";
+import type { LifecycleAction } from "@/lib/agent-lifecycle-state-machine";
 import type { AgentRegistryEntry, AgentRegistrySort, AgentRegistrySortField } from "@/types/dashboard";
 
 const COLUMNS: Array<{ field: AgentRegistrySortField; label: string }> = [
@@ -26,6 +28,10 @@ export interface AgentRegistryTableProps {
   selectedIds: Set<string>;
   onToggleRow: (agentId: string) => void;
   onToggleAllOnPage: () => void;
+  /** AC: "Selecting a lifecycle action opens a confirmation dialog" — the table only surfaces the chosen action per row; the page owns the dialog and the API call. */
+  onSelectAction?: (agent: AgentRegistryEntry, action: LifecycleAction) => void;
+  /** AC: "loading spinner on the affected row during transition." */
+  transitioningIds?: Set<string>;
 }
 
 /**
@@ -37,7 +43,7 @@ export interface AgentRegistryTableProps {
  * own established convention elsewhere (HealthFilterBar, UsageFilterPanel)
  * is plain accessible HTML over a heavy component library.
  */
-export function AgentRegistryTable({ agents, sort, onSortChange, selectedIds, onToggleRow, onToggleAllOnPage }: AgentRegistryTableProps) {
+export function AgentRegistryTable({ agents, sort, onSortChange, selectedIds, onToggleRow, onToggleAllOnPage, onSelectAction, transitioningIds }: AgentRegistryTableProps) {
   const allOnPageSelected = agents.length > 0 && agents.every((a) => selectedIds.has(a.id));
   const someOnPageSelected = agents.some((a) => selectedIds.has(a.id));
 
@@ -106,9 +112,20 @@ export function AgentRegistryTable({ agents, sort, onSortChange, selectedIds, on
               <td className="px-3 py-2">{agent.team?.name ?? "—"}</td>
               <td className="px-3 py-2 text-muted-foreground">{formatLastSeen(agent.lastSeen)}</td>
               <td className="px-3 py-2">
-                <a href={`/agents/${agent.id}`} className="text-primary text-sm underline">
-                  View
-                </a>
+                <div className="flex items-center gap-3">
+                  <a href={`/agents/${agent.id}`} className="text-primary text-sm underline">
+                    View
+                  </a>
+                  {onSelectAction && (
+                    <AgentActionMenu
+                      agentId={agent.id}
+                      agentName={agent.name}
+                      status={agent.status}
+                      isTransitioning={transitioningIds?.has(agent.id) ?? false}
+                      onSelectAction={(action) => onSelectAction(agent, action)}
+                    />
+                  )}
+                </div>
               </td>
             </tr>
           ))}

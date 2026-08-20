@@ -347,3 +347,40 @@ export interface ApiErrorBody {
   details?: ApiFieldError[];
   request_id?: string;
 }
+
+// WO-081: Agent Lifecycle Management UI with Bulk Operations.
+
+/**
+ * PATCH /api/v1/agents/{id}/lifecycle response — the wire shape is
+ * AgentResource (agent.mapper.ts) plus `warning`, not the WO's own literal
+ * `api_contracts` prose ({ id, name, previousStatus, newStatus,
+ * transitionedAt, inFlightOperations }) — that prose predates the actual
+ * LifecycleService/AgentsController implementation from WO-032, which this
+ * WO's own README explicitly says to trust over the prose summary.
+ */
+export interface LifecycleTransitionResponse {
+  id: string;
+  name: string;
+  framework: string;
+  lifecycleStatus: AgentLifecycleStatus;
+  team: AgentRegistryTeamRef | null;
+  lastSeen: string;
+  warning: string | null;
+}
+
+/** POST /api/v1/agents/bulk-lifecycle per-agent result (BulkLifecycleAgentResult on the backend) — no `agentName` on the wire, the caller already knows every selected agent's name from the registry table's own data. */
+export interface BulkLifecycleAgentResult {
+  agentId: string;
+  status: "success" | "failed";
+  previousStatus: AgentLifecycleStatus | null;
+  newStatus: AgentLifecycleStatus | null;
+  warning: string | null;
+  error: string | null;
+}
+
+export interface BulkLifecycleResponse {
+  totalCount: number;
+  successCount: number;
+  failureCount: number;
+  results: BulkLifecycleAgentResult[];
+}

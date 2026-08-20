@@ -1,0 +1,10 @@
+{
+  "totalCount": 3,
+  "successCount": 2,
+  "failureCount": 1,
+  "results": [
+    { "agentId": "a0001aaaa-0000-0000-0000-000000000000", "status": "success", "previousStatus": "active", "newStatus": "retired", "warning": null, "error": null },
+    { "agentId": "a0002aaaa-0000-0000-0000-000000000000", "status": "success", "previousStatus": "active", "newStatus": "retired", "warning": null, "error": null },
+    { "agentId": "a0003aaaa-0000-0000-0000-000000000000", "status": "failed", "previousStatus": null, "newStatus": null, "warning": null, "error": "Agent was modified concurrently by another request. Please retry." }
+  ]
+}

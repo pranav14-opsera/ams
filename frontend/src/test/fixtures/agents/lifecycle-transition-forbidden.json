@@ -1,0 +1,5 @@
+{
+  "error": "FORBIDDEN",
+  "message": "Admin role required for lifecycle management",
+  "request_id": "req-lifecycle-forbidden-0001"
+}

@@ -1,0 +1,5 @@
+{
+  "error": "CONFLICT",
+  "message": "Cannot transition agent from \"paused\" to \"paused\". Valid transitions from \"paused\": active, retired.",
+  "request_id": "req-lifecycle-conflict-0001"
+}
