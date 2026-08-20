@@ -1,0 +1,12 @@
+{
+  "expired": false,
+  "currentStep": 4,
+  "completedSteps": [1, 2, 3],
+  "stepData": {
+    "step1": { "organizationName": "Acme Health", "dataResidencyRegion": "us", "adminEmail": "admin@acme.test" },
+    "step2": { "protocol": "oidc" },
+    "step3": { "skipped": true, "scimConfigured": false }
+  },
+  "createdAt": "2026-08-19T09:00:00.000Z",
+  "expiresAt": "2026-08-26T09:00:00.000Z"
+}

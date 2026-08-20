@@ -1,0 +1,7 @@
+{
+  "tenantId": "11111111-1111-1111-1111-111111111111",
+  "name": "Acme Health",
+  "region": "us",
+  "status": "active",
+  "provisionedAt": "2026-08-20T12:00:00.000Z"
+}

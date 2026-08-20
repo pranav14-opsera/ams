@@ -5,7 +5,7 @@ import { DataClassification } from "../../classification/data-classification.enu
 import { AUDIT_SERVICE, type AuditServicePort } from "../../tenants/ports/audit-service.port";
 import { CreditRateMappingService } from "../credit-rate-mapping.service";
 import { CreditBudgetRepository } from "./credit-budget.repository";
-import type { AllocateBudgetRequest, CreditBudget, TeamBudgetSummary } from "./credit-budget.types";
+import type { AllocateBudgetRequest, CreditBudget, OrganizationCreditPool, TeamBudgetSummary } from "./credit-budget.types";
 
 function monthBounds(month: number, year: number): { start: Date; end: Date } {
   const start = new Date(Date.UTC(year, month - 1, 1));
@@ -41,6 +41,35 @@ export class CreditBudgetService {
      */
     private readonly rateMappingService?: CreditRateMappingService,
   ) {}
+
+  /**
+   * WO-082 Step 5 ("configure initial credit budget allocation from the
+   * organization's pool") is the first real caller that needs to
+   * PROVISION the org pool itself, not just allocate against an
+   * already-existing one — `allocate()`'s own guard clause above requires
+   * a pool row to already exist, and nothing else in this codebase wraps
+   * `CreditBudgetRepository.upsertPool` in an HTTP route (see that
+   * repository method's own comment: "out of THIS WO's own endpoint
+   * list... a separate billing/procurement process is expected to call
+   * this"). A brand-new tenant has no such separate process yet during
+   * self-service onboarding, so this thin wrapper exists specifically for
+   * that flow.
+   */
+  async upsertPool(tenantId: string, actorId: string | null, month: number, year: number, totalCredits: number): Promise<OrganizationCreditPool> {
+    const pool = await this.repository.upsertPool(undefined, tenantId, month, year, totalCredits);
+    await this.auditService
+      .recordEvent({
+        tenantId,
+        actorId,
+        action: "credit_budget.pool_allocated",
+        resourceType: "organization_credit_pool",
+        resourceId: pool.id,
+        details: { totalCredits, effectiveMonth: month, effectiveYear: year },
+        dataClassification: DataClassification.CONFIDENTIAL,
+      })
+      .catch(() => undefined);
+    return pool;
+  }
 
   async allocate(tenantId: string, actorId: string | null, request: AllocateBudgetRequest): Promise<CreditBudget> {
     const scoped = await this.pool.connect();

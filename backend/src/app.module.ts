@@ -22,6 +22,7 @@ import { AuditModule } from "./audit/audit.module";
 import { DashboardModule } from "./dashboard/dashboard.module";
 import { DriftDetectionModule } from "./drift-detection/drift-detection.module";
 import { GatewayModule } from "./gateway/gateway.module";
+import { OnboardingModule } from "./onboarding/onboarding.module";
 import { PhiScrubberModule } from "./phi-scrubber/phi-scrubber.module";
 import { QualityScoreModule } from "./quality-score/quality-score.module";
 import { RbacModule } from "./rbac/rbac.module";
@@ -86,6 +87,7 @@ const ADAPTER_TELEMETRY_ROUTES = ["api/v1/adapters/*/telemetry"];
     CreditsModule,
     CreditReconciliationModule,
     CreditBudgetModule,
+    OnboardingModule,
     AdaptersModule,
     LangChainModule,
     RestModule,

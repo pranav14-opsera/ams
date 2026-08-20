@@ -1,0 +1,9 @@
+{
+  "success": false,
+  "diagnostics": {
+    "tokenActive": "fail",
+    "filterParsing": "pass",
+    "endpointReachable": "pass"
+  },
+  "errorMessage": "No active SCIM bearer token exists for this tenant — generate one before configuring your IdP."
+}

@@ -1,0 +1,10 @@
+{
+  "success": false,
+  "diagnostics": {
+    "metadataFetch": "fail",
+    "certificateValidation": "fail",
+    "assertionParsing": "fail",
+    "groupMapping": "fail"
+  },
+  "errorMessage": "Could not fetch IdP metadata from the configured URL — verify it is publicly accessible."
+}

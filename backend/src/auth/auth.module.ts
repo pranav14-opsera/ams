@@ -35,13 +35,14 @@ import { InMemorySessionStore } from "./session/in-memory-session-store.service"
 import { TenantSessionPolicyRepository } from "./session/tenant-session-policy.repository";
 import { SsoConfigController } from "./sso-config.controller";
 import { SsoConfigRepository } from "./sso-config.repository";
+import { SsoTestController } from "./sso-test.controller";
 import { REFRESH_TOKEN_STORE } from "./token/refresh-token-store.port";
 import { InMemoryRefreshTokenStore } from "./token/in-memory-refresh-token-store.service";
 import { TokenService } from "./token/token.service";
 
 @Module({
   imports: [EncryptionModule],
-  controllers: [AuthController, SsoConfigController, JwksController, SessionPolicyController, MfaController, MfaPolicyController, GroupMappingController],
+  controllers: [AuthController, SsoConfigController, SsoTestController, JwksController, SessionPolicyController, MfaController, MfaPolicyController, GroupMappingController],
   providers: [
     AuthService,
     SamlService,
