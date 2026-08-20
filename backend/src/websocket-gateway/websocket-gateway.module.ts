@@ -5,6 +5,7 @@ import { ApprovalsGateway } from "./gateways/approvals.gateway";
 import { DashboardGateway } from "./gateways/dashboard.gateway";
 import { HealthGateway } from "./gateways/health.gateway";
 import { OrgUsageGateway } from "./gateways/org-usage.gateway";
+import { TeamUsageGateway } from "./gateways/team-usage.gateway";
 import { ConnectionRegistryService } from "./connection-registry.service";
 import { MessageBatcherService } from "./message-batcher.service";
 import { RedisPubSubService } from "./redis-pubsub.service";
@@ -18,6 +19,7 @@ import { WsMetricsService } from "./ws-metrics.service";
     DashboardGateway,
     HealthGateway,
     OrgUsageGateway,
+    TeamUsageGateway,
     AlertsGateway,
     ApprovalsGateway,
     ConnectionRegistryService,
