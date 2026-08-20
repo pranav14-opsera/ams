@@ -85,6 +85,14 @@ class FakeThresholdMonitorService {
   }
 }
 
+class FakeHardCapEnforcementService {
+  public calls: Array<{ tenantId: string; teamId: string }> = [];
+  async enforceIfBreached(_client: unknown, tenantId: string, teamId: string) {
+    this.calls.push({ tenantId, teamId });
+    return { pausedAgentIds: [], resumedAgentIds: [] };
+  }
+}
+
 function buildRig() {
   const processedEventRepository = new FakeProcessedEventRepository();
   const ledgerService = new FakeLedgerService();
@@ -93,6 +101,7 @@ function buildRig() {
   const alertEventRepository = new FakeAlertEventRepository();
   const alertDeliveryService = new FakeAlertDeliveryService();
   const thresholdMonitorService = new FakeThresholdMonitorService();
+  const hardCapEnforcementService = new FakeHardCapEnforcementService();
   const service = new CreditReconciliationService(
     processedEventRepository as any,
     ledgerService as any,
@@ -101,8 +110,9 @@ function buildRig() {
     alertEventRepository as any,
     alertDeliveryService as any,
     thresholdMonitorService as any,
+    hardCapEnforcementService as any,
   );
-  return { processedEventRepository, ledgerService, cacheBreaker, dlqProducer, alertEventRepository, alertDeliveryService, thresholdMonitorService, service };
+  return { processedEventRepository, ledgerService, cacheBreaker, dlqProducer, alertEventRepository, alertDeliveryService, thresholdMonitorService, hardCapEnforcementService, service };
 }
 
 test("a genuine cache-mode allowed event is recorded as a real ledger debit and marked processed", async () => {
@@ -260,6 +270,46 @@ test("WO-069: a batch where nothing was genuinely reconciled (all skipped/dedupl
 });
 
 test("WO-069: without the optional ThresholdMonitorService wired at all, batch processing still works exactly as before (zero blast radius)", async () => {
+  const processedEventRepository = new FakeProcessedEventRepository();
+  const ledgerService = new FakeLedgerService();
+  const cacheBreaker = new FakeCacheBreaker();
+  const dlqProducer = new FakeDlqProducer();
+  const service = new CreditReconciliationService(processedEventRepository as any, ledgerService as any, cacheBreaker as any, dlqProducer as any);
+
+  const result = await service.processBatch(undefined, [makeEvent()]);
+  assert.equal(result.processed, 1);
+});
+
+test("WO-070: a successful batch triggers hard-cap enforcement for every affected (tenant, team) with a real team_id", async () => {
+  const { hardCapEnforcementService, service } = buildRig();
+  const events = [makeEvent({ tenantId: "tenant-a", teamId: "team-1" }), makeEvent({ tenantId: "tenant-a", teamId: "team-2" }), makeEvent({ tenantId: "tenant-b", teamId: "team-3" })];
+
+  await service.processBatch(undefined, events);
+
+  assert.equal(hardCapEnforcementService.calls.length, 3, "one call per distinct (tenant, team) pair");
+  assert.ok(hardCapEnforcementService.calls.some((c) => c.tenantId === "tenant-a" && c.teamId === "team-1"));
+  assert.ok(hardCapEnforcementService.calls.some((c) => c.tenantId === "tenant-a" && c.teamId === "team-2"));
+  assert.ok(hardCapEnforcementService.calls.some((c) => c.tenantId === "tenant-b" && c.teamId === "team-3"));
+});
+
+test("WO-070: a batch where nothing was genuinely reconciled never triggers hard-cap enforcement", async () => {
+  const { hardCapEnforcementService, service } = buildRig();
+  await service.processBatch(undefined, [makeEvent({ decision: "denied" })]);
+  assert.equal(hardCapEnforcementService.calls.length, 0);
+});
+
+test("WO-070: a failure in hard-cap enforcement for one team never stops threshold monitoring or the rest of the batch's outcome", async () => {
+  const { hardCapEnforcementService, thresholdMonitorService, service } = buildRig();
+  hardCapEnforcementService.enforceIfBreached = async () => {
+    throw new Error("simulated hard-cap enforcement failure");
+  };
+
+  const result = await service.processBatch(undefined, [makeEvent({ tenantId: "tenant-a", teamId: "team-1" })]);
+  assert.equal(result.processed, 1);
+  assert.equal(thresholdMonitorService.calls.length, 1, "threshold monitoring must still run even if hard-cap enforcement throws");
+});
+
+test("WO-070: without the optional HardCapEnforcementService wired at all, batch processing still works exactly as before (zero blast radius)", async () => {
   const processedEventRepository = new FakeProcessedEventRepository();
   const ledgerService = new FakeLedgerService();
   const cacheBreaker = new FakeCacheBreaker();

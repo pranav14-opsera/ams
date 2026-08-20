@@ -9,6 +9,7 @@ import { CreditConsumptionDlqProducerService } from "./credit-consumption-dlq-pr
 import { CreditProcessedEventRepository } from "./credit-processed-event.repository";
 import type { BatchResult, DlqEntry } from "./credit-reconciliation.types";
 import { ThresholdMonitorService } from "../threshold-alerts/threshold-monitor.service";
+import { HardCapEnforcementService } from "../hard-cap/hard-cap-enforcement.service";
 
 const DLQ_METRIC_NAME = "credit_reconciliation_dlq";
 
@@ -37,6 +38,8 @@ export class CreditReconciliationService {
     private readonly alertDeliveryService?: AlertDeliveryService,
     /** Optional — WO-069's own event-driven ("after each reconciliation batch") threshold monitoring hook. Existing/test call sites that don't pass this simply never trigger threshold evaluation. */
     private readonly thresholdMonitorService?: ThresholdMonitorService,
+    /** Optional — WO-070's hard-cap pause enforcement, evaluated after every reconciliation batch alongside threshold monitoring (same zero-blast-radius convention). */
+    private readonly hardCapEnforcementService?: HardCapEnforcementService,
   ) {}
 
   getLastSuccessfulBatchAt(): Date | null {
@@ -95,6 +98,7 @@ export class CreditReconciliationService {
       }
       this.lastSuccessfulBatchAt = new Date();
       await this.triggerThresholdMonitoring(client, affectedKeys);
+      await this.triggerHardCapEnforcement(client, affectedKeys);
     }
 
     return { processed: processedCount, deduplicated, skipped, failed, affectedBalanceKeys: [...affectedKeys.values()] };
@@ -118,6 +122,21 @@ export class CreditReconciliationService {
         await this.thresholdMonitorService.evaluateThresholds(client, tenantId, teamIds, now.getUTCMonth() + 1, now.getUTCFullYear());
       } catch (err) {
         this.logger.warn(`threshold monitoring failed for tenant ${tenantId} after reconciliation batch: ${err instanceof Error ? err.message : err}`);
+      }
+    }
+  }
+
+  /** AC: "the system pauses all agents belonging to that team within 30 seconds" of the hard cap being reached — same direct in-process, event-driven trigger as triggerThresholdMonitoring, evaluated for every (tenant, team) whose balance this batch actually changed. */
+  private async triggerHardCapEnforcement(client: Pool | PoolClient | undefined, affectedKeys: Map<string, { tenantId: string; teamId: string | null }>): Promise<void> {
+    if (!this.hardCapEnforcementService) return;
+
+    const now = new Date();
+    for (const key of affectedKeys.values()) {
+      if (!key.teamId) continue; // no team to enforce a team-scoped hard cap against
+      try {
+        await this.hardCapEnforcementService.enforceIfBreached(client, key.tenantId, key.teamId, now.getUTCMonth() + 1, now.getUTCFullYear());
+      } catch (err) {
+        this.logger.warn(`hard-cap enforcement failed for tenant ${key.tenantId} team ${key.teamId} after reconciliation batch: ${err instanceof Error ? err.message : err}`);
       }
     }
   }

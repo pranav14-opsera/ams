@@ -105,7 +105,8 @@ export class MeteringEngineService {
     reason?: string,
   ): MeteringResult {
     const latencyMs = Date.now() - start;
-    const result: MeteringResult = { decision, enforcementMode, creditsConsumed, balanceAfter, latencyMs, ...(reason ? { reason } : {}) };
+    const hardCapReached = decision === "denied" && balanceAfter !== null && balanceAfter <= 0;
+    const result: MeteringResult = { decision, enforcementMode, creditsConsumed, balanceAfter, latencyMs, hardCapReached, ...(reason ? { reason } : {}) };
 
     // AC: "structured JSON logging for every metering decision including latency_ms, enforcement_mode, decision, tenant_id, team_id, and agent_id".
     this.logger.log(

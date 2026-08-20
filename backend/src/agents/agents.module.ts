@@ -27,5 +27,6 @@ import { LifecycleService } from "./lifecycle.service";
     BulkLifecycleService,
     { provide: AUDIT_SERVICE, useClass: PostgresAuditService },
   ],
+  exports: [AgentsRepository, LifecycleService],
 })
 export class AgentsModule {}
