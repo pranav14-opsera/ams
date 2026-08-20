@@ -1,0 +1,48 @@
+{
+  "$id": "urn:ams:agent-connection-schema:langchain",
+  "title": "LangChain Connection",
+  "description": "Connect a LangChain-based agent for telemetry ingestion and lifecycle management.",
+  "type": "object",
+  "properties": {
+    "apiEndpointUrl": {
+      "type": "string",
+      "format": "uri",
+      "title": "API Endpoint URL",
+      "description": "The base URL your LangChain agent's API is reachable at.",
+      "x-order": 1,
+      "x-widget": "url"
+    },
+    "apiKey": {
+      "type": "string",
+      "format": "password",
+      "title": "API Key / Token",
+      "description": "Used to authenticate control-plane calls to your agent. Stored encrypted and never displayed again after this step.",
+      "x-order": 2,
+      "x-widget": "password"
+    },
+    "langsmithProjectId": {
+      "type": "string",
+      "title": "LangSmith Project ID",
+      "description": "Optional — associates this agent's traces with a LangSmith project for deeper debugging.",
+      "x-order": 3,
+      "x-widget": "text"
+    },
+    "callbackUrl": {
+      "type": "string",
+      "format": "uri",
+      "title": "Telemetry Callback URL",
+      "description": "Where AMS should deliver telemetry and health callbacks for this agent.",
+      "x-order": 4,
+      "x-widget": "url"
+    },
+    "frameworkVersion": {
+      "type": "string",
+      "title": "Framework Version",
+      "description": "The LangChain version this agent runs — used to check adapter compatibility.",
+      "enum": ["0.1.x", "0.2.x", "0.3.x", "1.0.x"],
+      "x-order": 5,
+      "x-widget": "select"
+    }
+  },
+  "required": ["apiEndpointUrl", "apiKey", "callbackUrl", "frameworkVersion"]
+}

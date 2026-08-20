@@ -1,0 +1,5 @@
+{
+  "error": "CONFLICT",
+  "message": "An agent named \"Support Bot\" already exists in this tenant.",
+  "request_id": "req-conflict-1"
+}
