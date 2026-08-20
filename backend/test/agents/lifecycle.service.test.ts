@@ -282,3 +282,24 @@ test("publishes a best-effort real-time lifecycle event and does not let a publi
   const result = await service.transition(undefined, "tenant-1", "actor-1", "agent-1", "paused" as any, undefined);
   assert.equal(result.agent.lifecycleStatus, "paused", "a pub/sub publish failure must not fail the actual transition");
 });
+
+// WO-079: the Agent Registry page's real-time row updates reuse the
+// existing /ws/health channel (HealthGateway) instead of a new gateway —
+// a lifecycle transition must publish a shape-tagged message onto that
+// same channel so useAgentHealthSocket can pick it out of the fleet-health
+// snapshots HealthMetricsPublisherService also publishes there.
+test("also publishes an agent_status_update message on the 'health' channel, for the Agent Registry page's real-time updates", async () => {
+  const { service, pubsub } = buildService({ agent: baseAgent("active") });
+  await service.transition(undefined, "tenant-1", "actor-1", "agent-1", "paused" as any, undefined);
+
+  const healthMessages = pubsub.published.filter((p: any) => p.channel === "health");
+  assert.equal(healthMessages.length, 1);
+  assert.equal(healthMessages[0].tenantId, "tenant-1");
+  assert.deepEqual(healthMessages[0].message.payload, {
+    type: "agent_status_update",
+    agentId: "agent-1",
+    status: "paused",
+    lastSeen: healthMessages[0].message.payload.lastSeen,
+  });
+  assert.ok(typeof healthMessages[0].message.payload.lastSeen === "string" && healthMessages[0].message.payload.lastSeen.length > 0);
+});

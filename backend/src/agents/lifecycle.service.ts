@@ -102,6 +102,22 @@ export class LifecycleService {
     // codebase) purely for this one lifecycle-event use case.
     this.pubsub.publish(tenantId, "agent-lifecycle", { agentId, fromStatus, toStatus: targetStatus, warningFlag }).catch(() => undefined);
 
+    // WO-079: the Agent Registry page's own AC calls for real-time row
+    // updates over the *existing* /ws/health channel (HealthGateway) rather
+    // than standing up a dedicated gateway/channel for this one page — same
+    // "reuse WO-030's pub/sub, don't add a broker" posture as the
+    // "agent-lifecycle" publish just above. HealthMetricsPublisherService
+    // publishes full fleet snapshots on this same channel; this message is
+    // shape-tagged (`type: "agent_status_update"`) so useAgentHealthSocket
+    // on the client can tell the two apart and ignore whichever this page
+    // doesn't care about, rather than the two producers needing to
+    // coordinate a single shared payload shape.
+    this.pubsub
+      .publish(tenantId, "health", {
+        payload: { type: "agent_status_update" as const, agentId, status: targetStatus, lastSeen: updated.updated_at.toISOString() },
+      })
+      .catch(() => undefined);
+
     return {
       agent: toAgentResource(updated),
       previousStatus: fromStatus,

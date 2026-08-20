@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { ConflictException, Inject, Injectable, NotFoundException } from "@nestjs/common";
+import { ConflictException, Inject, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import type { Pool, PoolClient } from "pg";
 import { PG_POOL } from "../common/database/database.module";
 import { AdapterHealthService, type CompatibilityWarning } from "../adapters/health/adapter-health.service";
@@ -9,7 +9,7 @@ import { AUDIT_SERVICE, type AuditServicePort } from "../tenants/ports/audit-ser
 import { AgentResource, toAgentResource } from "./agent.mapper";
 import { AgentsRepository } from "./agents.repository";
 import type { AgentFramework } from "./dto/create-agent.dto";
-import type { AgentLifecycleStatus } from "./dto/list-agents-query.dto";
+import type { AgentLifecycleStatus, AgentSortField, SortOrder } from "./dto/list-agents-query.dto";
 
 export interface AgentListResult {
   agents: AgentResource[];
@@ -37,6 +37,8 @@ export interface CreateAgentResult extends AgentResource {
 
 @Injectable()
 export class AgentsService {
+  private readonly logger = new Logger(AgentsService.name);
+
   constructor(
     @Inject(PG_POOL) private readonly pool: Pool,
     private readonly repository: AgentsRepository,
@@ -94,11 +96,47 @@ export class AgentsService {
   async findAll(
     client: Pool | PoolClient | undefined,
     tenantId: string,
-    filters: { teamId?: string; framework?: AgentFramework; lifecycleStatus?: AgentLifecycleStatus; name?: string; limit?: number; offset?: number },
+    filters: {
+      teamId?: string;
+      framework?: AgentFramework | AgentFramework[];
+      lifecycleStatus?: AgentLifecycleStatus | AgentLifecycleStatus[];
+      name?: string;
+      limit?: number;
+      offset?: number;
+      sortBy?: AgentSortField;
+      sortOrder?: SortOrder;
+    },
+    actorId: string | null = null,
   ): Promise<AgentListResult> {
     const limit = filters.limit ?? 50;
     const offset = filters.offset ?? 0;
     const { rows, total } = await this.repository.findAll(client, tenantId, { ...filters, limit, offset });
+
+    // AC (WO-079): "every page load and filter/sort action produces a
+    // structured audit log entry" — same never-fail-the-read posture as
+    // TeamUsageDashboardService.recordDashboardViewAuditEvent
+    // (dashboard.team_usage_viewed) and DashboardService's own
+    // recordAccessAuditEvent (dashboard.health_view_accessed); awaited
+    // (rather than those two's fire-and-forget) so the entry genuinely
+    // exists by the time this call resolves — findAll is called far more
+    // frequently, in tighter request/cleanup cycles, than a dashboard page
+    // load, and a dangling unawaited insert racing a caller's own cleanup
+    // is exactly the kind of flake an audit trail for a compliance-relevant
+    // read path shouldn't have.
+    try {
+      await this.auditService.recordEvent({
+        tenantId,
+        actorId,
+        action: "agent_registry.viewed",
+        resourceType: "agent_registry",
+        resourceId: tenantId,
+        details: { filters: { teamId: filters.teamId, framework: filters.framework, lifecycleStatus: filters.lifecycleStatus, name: filters.name }, sortBy: filters.sortBy, sortOrder: filters.sortOrder, limit, offset },
+        dataClassification: DataClassification.INTERNAL,
+      });
+    } catch (err) {
+      this.logger.warn(`failed to record agent registry view audit event: ${err instanceof Error ? err.message : err}`);
+    }
+
     return { agents: rows.map(toAgentResource), total, limit, offset };
   }
 

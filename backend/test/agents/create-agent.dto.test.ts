@@ -63,3 +63,27 @@ test("ListAgentsQueryDto rejects a negative offset", async () => {
   const errors = await validate(dto);
   assert.ok(errors.some((e) => e.property === "offset"));
 });
+
+// WO-079: Agent Registry AC — multi-select framework/status filters.
+test("ListAgentsQueryDto accepts a comma-separated multi-value framework and lifecycleStatus filter", async () => {
+  const dto = plainToInstance(ListAgentsQueryDto, { framework: "langchain,crewai", lifecycleStatus: "active,paused" });
+  assert.equal((await validate(dto)).length, 0);
+  assert.deepEqual(dto.framework, ["langchain", "crewai"]);
+  assert.deepEqual(dto.lifecycleStatus, ["active", "paused"]);
+});
+
+test("ListAgentsQueryDto rejects a multi-value framework filter containing an unknown framework", async () => {
+  const dto = plainToInstance(ListAgentsQueryDto, { framework: "langchain,not-a-framework" });
+  const errors = await validate(dto);
+  assert.ok(errors.some((e) => e.property === "framework"));
+});
+
+test("ListAgentsQueryDto accepts sortBy/sortOrder for name, framework, lifecycleStatus, and lastSeen", async () => {
+  for (const sortBy of ["name", "framework", "lifecycleStatus", "lastSeen"]) {
+    const dto = plainToInstance(ListAgentsQueryDto, { sortBy, sortOrder: "asc" });
+    assert.equal((await validate(dto)).length, 0, `sortBy=${sortBy} should be valid`);
+  }
+  const invalid = plainToInstance(ListAgentsQueryDto, { sortBy: "not-a-field" });
+  const errors = await validate(invalid);
+  assert.ok(errors.some((e) => e.property === "sortBy"));
+});

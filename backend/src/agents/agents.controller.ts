@@ -61,7 +61,21 @@ export class AgentsController {
   @Get()
   @RequirePermission(PermissionName.AGENT_READ)
   async findAll(@Query() query: ListAgentsQueryDto, @Req() req: Request) {
-    return this.agentsService.findAll(req.tenantDbClient, req.tenantId!, query);
+    const result = await this.agentsService.findAll(req.tenantDbClient, req.tenantId!, query, req.actorId ?? null);
+    // WO-079's Agent Registry page api_contract: { data, pagination: { page, pageSize, total, totalPages } }.
+    // Reshaped at the controller boundary only — AgentsService/AgentsRepository keep their
+    // existing { agents, total, limit, offset } shape (other callers, e.g. bulk-lifecycle's
+    // filter resolution, and this codebase's own service-level tests, depend on it).
+    const page = Math.floor(result.offset / result.limit) + 1;
+    return {
+      data: result.agents,
+      pagination: {
+        page,
+        pageSize: result.limit,
+        total: result.total,
+        totalPages: Math.ceil(result.total / result.limit),
+      },
+    };
   }
 
   @Get(":id")

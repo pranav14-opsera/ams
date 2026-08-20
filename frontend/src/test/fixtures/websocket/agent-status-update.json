@@ -1,0 +1,11 @@
+{
+  "type": "data",
+  "channel": "health",
+  "payload": {
+    "type": "agent_status_update",
+    "agentId": "a0001aaaa-0000-0000-0000-000000000000",
+    "status": "active",
+    "lastSeen": "2026-08-20T12:00:00.000Z"
+  },
+  "timestamp": "2026-08-20T12:00:00.000Z"
+}

@@ -14,6 +14,12 @@ const badgeVariants = cva("inline-flex items-center rounded-full px-2 py-0.5 tex
       error: "bg-red-100 text-red-800",
       paused: "bg-yellow-100 text-yellow-800",
       retired: "bg-gray-200 text-gray-700",
+      // WO-079: Agent Registry's own lifecycle-status vocabulary adds two
+      // variants the health dashboard never needed — "connecting" (a
+      // newly-registered agent still establishing its adapter connection)
+      // and "decommissioned" (a harder terminal state than "retired").
+      connecting: "bg-amber-100 text-amber-800",
+      decommissioned: "bg-red-100 text-red-800",
     },
   },
   defaultVariants: {

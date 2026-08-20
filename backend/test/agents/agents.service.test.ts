@@ -154,6 +154,31 @@ test("findAll supports filtering by framework, lifecycleStatus, teamId, and name
   }
 });
 
+// WO-079: Agent Registry AC — multi-select framework/status filters (an
+// array of values, not just one at a time).
+test("findAll supports multi-select array filters for framework and lifecycleStatus", { skip }, async () => {
+  const pool = new Pool({ connectionString: DATABASE_URL });
+  const { saga, service } = await buildRig(pool);
+  const slug = randomSlug();
+  try {
+    const tenant = await saga.provision({ name: "Agent Multi Filter Co", slug, dataResidencyRegion: "us", actorId: null });
+    await service.create(pool, tenant.id, null, { name: "LangChain Bot", framework: "langchain", connectionConfig: {} });
+    const crewaiBot = await service.create(pool, tenant.id, null, { name: "CrewAI Bot", framework: "crewai", connectionConfig: {} });
+    await service.create(pool, tenant.id, null, { name: "AutoGen Bot", framework: "autogen", connectionConfig: {} });
+    await pool.query("UPDATE agents SET lifecycle_status = 'active' WHERE id = $1", [crewaiBot.id]);
+
+    const multiFramework = await service.findAll(pool, tenant.id, { framework: ["langchain", "crewai"] });
+    assert.equal(multiFramework.total, 2);
+    assert.deepEqual(new Set(multiFramework.agents.map((a) => a.framework)), new Set(["langchain", "crewai"]));
+
+    const multiStatus = await service.findAll(pool, tenant.id, { lifecycleStatus: ["connecting", "active"] });
+    assert.equal(multiStatus.total, 3, "all 3 fixtures are either connecting or active");
+  } finally {
+    await cleanupTenant(pool, slug);
+    await pool.end();
+  }
+});
+
 test("findAll paginates via limit/offset", { skip }, async () => {
   const pool = new Pool({ connectionString: DATABASE_URL });
   const { saga, service } = await buildRig(pool);
@@ -170,6 +195,89 @@ test("findAll paginates via limit/offset", { skip }, async () => {
     assert.equal(page1.agents.length, 2);
     assert.equal(page2.agents.length, 2);
     assert.notDeepEqual(page1.agents.map((a) => a.id), page2.agents.map((a) => a.id));
+  } finally {
+    await cleanupTenant(pool, slug);
+    await pool.end();
+  }
+});
+
+// WO-079: Agent Registry page AC — server-side sorting by Name, Framework,
+// Status, and Last Seen. Exercised against real Postgres since it's a raw
+// SQL ORDER BY built from a whitelisted column map (AgentsRepository's own
+// SORT_COLUMNS), not something a fake repository would catch a mistake in.
+test("findAll records a structured 'agent_registry.viewed' audit event with the applied filters/sort", { skip }, async () => {
+  const pool = new Pool({ connectionString: DATABASE_URL });
+  const { saga, service } = await buildRig(pool);
+  const slug = randomSlug();
+  try {
+    const tenant = await saga.provision({ name: "Agent Audit Co", slug, dataResidencyRegion: "us", actorId: null });
+    // actor_id has an FK to `users` — null (system/unauthenticated-actor
+    // context) is the only actor value this test can use without also
+    // seeding a real user row, same as every other fixture in this file
+    // that passes `null` for actorId.
+    await service.findAll(pool, tenant.id, { framework: "langchain", sortBy: "name", sortOrder: "asc" }, null);
+
+    const events = await pool.query("SELECT * FROM audit_events WHERE tenant_id = $1 AND action = 'agent_registry.viewed'", [tenant.id]);
+    assert.equal(events.rows.length, 1);
+    assert.equal(events.rows[0].actor_id, null);
+    assert.equal(events.rows[0].resource_type, "agent_registry");
+    assert.equal(events.rows[0].details.sortBy, "name");
+    assert.equal(events.rows[0].details.sortOrder, "asc");
+    assert.equal(events.rows[0].details.filters.framework, "langchain");
+  } finally {
+    await cleanupTenant(pool, slug);
+    await pool.end();
+  }
+});
+
+test("findAll sorts by name, framework, and lifecycleStatus in both directions", { skip }, async () => {
+  const pool = new Pool({ connectionString: DATABASE_URL });
+  const { saga, service } = await buildRig(pool);
+  const slug = randomSlug();
+  try {
+    const tenant = await saga.provision({ name: "Agent Sort Co", slug, dataResidencyRegion: "us", actorId: null });
+    await service.create(pool, tenant.id, null, { name: "Charlie", framework: "autogen", connectionConfig: {} });
+    await service.create(pool, tenant.id, null, { name: "Alpha", framework: "crewai", connectionConfig: {} });
+    await service.create(pool, tenant.id, null, { name: "Bravo", framework: "langchain", connectionConfig: {} });
+
+    const byNameAsc = await service.findAll(pool, tenant.id, { sortBy: "name", sortOrder: "asc" });
+    assert.deepEqual(byNameAsc.agents.map((a) => a.name), ["Alpha", "Bravo", "Charlie"]);
+
+    const byNameDesc = await service.findAll(pool, tenant.id, { sortBy: "name", sortOrder: "desc" });
+    assert.deepEqual(byNameDesc.agents.map((a) => a.name), ["Charlie", "Bravo", "Alpha"]);
+
+    const byFrameworkAsc = await service.findAll(pool, tenant.id, { sortBy: "framework", sortOrder: "asc" });
+    assert.deepEqual(
+      byFrameworkAsc.agents.map((a) => a.framework),
+      [...byFrameworkAsc.agents.map((a) => a.framework)].sort(),
+    );
+
+    const connecting = await service.findAll(pool, tenant.id, { sortBy: "lifecycleStatus", sortOrder: "asc" });
+    assert.ok(connecting.agents.every((a) => a.lifecycleStatus === "connecting"), "all 3 fixtures start life as 'connecting'");
+  } finally {
+    await cleanupTenant(pool, slug);
+    await pool.end();
+  }
+});
+
+test("findAll resolves the assigned team's name via the teams LEFT JOIN, and null when unassigned", { skip }, async () => {
+  const pool = new Pool({ connectionString: DATABASE_URL });
+  const { saga, service } = await buildRig(pool);
+  const slug = randomSlug();
+  try {
+    const tenant = await saga.provision({ name: "Agent Team Co", slug, dataResidencyRegion: "us", actorId: null });
+    const team = await pool.query("INSERT INTO teams (tenant_id, name) VALUES ($1, $2) RETURNING id", [tenant.id, "Platform Team"]);
+    const teamId = team.rows[0].id;
+
+    await service.create(pool, tenant.id, null, { name: "Teamed Bot", framework: "langchain", teamId, connectionConfig: {} });
+    await service.create(pool, tenant.id, null, { name: "Unassigned Bot", framework: "langchain", connectionConfig: {} });
+
+    const { agents } = await service.findAll(pool, tenant.id, {});
+    const teamed = agents.find((a) => a.name === "Teamed Bot")!;
+    const unassigned = agents.find((a) => a.name === "Unassigned Bot")!;
+
+    assert.deepEqual(teamed.team, { id: teamId, name: "Platform Team" });
+    assert.equal(unassigned.team, null);
   } finally {
     await cleanupTenant(pool, slug);
     await pool.end();

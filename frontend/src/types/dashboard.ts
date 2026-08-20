@@ -217,3 +217,74 @@ export interface TeamUsageUpdateMessage {
   burnRate: TeamBurnRateSummary;
   latestConsumption: TeamConsumptionTrendPoint | null;
 }
+
+// WO-079: Agent Registry page — a sortable/filterable/paginated table of
+// every tenant-scoped agent, distinct from the health dashboard's own
+// AGENT_HEALTH_STATUSES vocabulary above. This page's own "status" column
+// is the agent's LIFECYCLE status (registration/lifecycle-control state
+// machine — lifecycle.service.ts), not a live health/severity reading.
+
+export const AGENT_LIFECYCLE_STATUSES = ["connecting", "active", "paused", "retired", "decommissioned"] as const;
+export type AgentLifecycleStatus = (typeof AGENT_LIFECYCLE_STATUSES)[number];
+
+export const AGENT_REGISTRY_SORT_FIELDS = ["name", "framework", "status", "lastSeen"] as const;
+export type AgentRegistrySortField = (typeof AGENT_REGISTRY_SORT_FIELDS)[number];
+
+export type SortOrder = "asc" | "desc";
+
+export const AGENT_REGISTRY_PAGE_SIZES = [10, 25, 50, 100] as const;
+export type AgentRegistryPageSize = (typeof AGENT_REGISTRY_PAGE_SIZES)[number];
+
+export interface AgentRegistryTeamRef {
+  id: string;
+  name: string;
+}
+
+export interface AgentRegistryEntry {
+  id: string;
+  name: string;
+  framework: AgentFramework;
+  status: AgentLifecycleStatus;
+  team: AgentRegistryTeamRef | null;
+  lastSeen: string;
+  healthScore: number | null;
+  qualityScore: number | null;
+}
+
+export interface AgentRegistryFilters {
+  framework?: AgentFramework[];
+  status?: AgentLifecycleStatus[];
+  teamId?: string;
+}
+
+export interface AgentRegistrySort {
+  sortBy: AgentRegistrySortField;
+  sortOrder: SortOrder;
+}
+
+export interface AgentRegistryPagination {
+  page: number;
+  pageSize: AgentRegistryPageSize;
+  total: number;
+  totalPages: number;
+}
+
+export interface AgentRegistryResult {
+  data: AgentRegistryEntry[];
+  pagination: AgentRegistryPagination;
+}
+
+/**
+ * Wire shape published by LifecycleService onto the *existing* /ws/health
+ * channel (see backend lifecycle.service.ts's own WO-079 comment) —
+ * shape-tagged so useAgentHealthSocket can pick this out of the fleet
+ * health snapshots (FleetHealthResult, untagged) HealthMetricsPublisherService
+ * also publishes on that same channel, and ignore whichever it's not.
+ */
+export interface AgentStatusUpdateMessage {
+  type: "agent_status_update";
+  agentId: string;
+  status: AgentLifecycleStatus;
+  healthScore?: number | null;
+  lastSeen: string;
+}
