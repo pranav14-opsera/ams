@@ -82,11 +82,20 @@ export const NAVIGATION_CONFIG: NavigationItem[] = [
         requiredPermissions: ["credit_management:consumption:view_personal"],
       },
       {
+        // WO-074: this slot pre-dated the org usage dashboard's own
+        // implementation — its href now points at the real route
+        // (`/dashboard/usage/org`, per this WO's own literal AC) instead
+        // of the placeholder `/analytics/consumption` page that never
+        // existed. requiredPermissions widened to an OR of view_org/
+        // view_team (filterNavigationByPermissions' own `.some(...)`
+        // semantics) to match the AC's "Platform Administrator or Team
+        // Lead" access rule — team_lead only ever held view_team, never
+        // view_org.
         id: "consumption-dashboard",
-        label: "Consumption Dashboard",
+        label: "Organization Usage Dashboard",
         icon: TrendingUp,
-        href: "/analytics/consumption",
-        requiredPermissions: ["credit_management:consumption:view_org"],
+        href: "/dashboard/usage/org",
+        requiredPermissions: ["credit_management:consumption:view_org", "credit_management:consumption:view_team"],
       },
       {
         id: "usage-analytics",

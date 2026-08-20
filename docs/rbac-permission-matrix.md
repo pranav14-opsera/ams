@@ -40,7 +40,7 @@ document cannot silently drift from what's actually enforced.
 | credit_management:allocation:manage | ✓ | | | ✓ | |
 | credit_management:budget:configure | | | | ✓ | |
 | credit_management:overage_cap:manage | | | | ✓ | |
-| credit_management:consumption:view_org | | | | ✓ | |
+| credit_management:consumption:view_org | ✓ | | | ✓ | |
 | credit_management:consumption:view_team | | ✓ | | | |
 | credit_management:consumption:view_personal | | | ✓ | | |
 | credit_management:forecast:view | | | | ✓ | |
