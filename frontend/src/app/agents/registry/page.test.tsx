@@ -1,4 +1,6 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import AgentRegistryPage from "./page";
 import { expectNoA11yViolations } from "@/test/a11y/axe-setup";
@@ -6,6 +8,20 @@ import fixtures from "@/test/fixtures/agents/agent-registry-fixtures.json";
 import type { AgentRegistryEntry } from "@/types/dashboard";
 
 const agents = (fixtures.records as AgentRegistryEntry[]).slice(0, 6);
+
+// WO-081: the page now also drives useLifecycleTransitionMutation/
+// useBulkLifecycleMutation, both of which need a QueryClient in context
+// (useQueryClient throws without a provider) — every render in this file
+// goes through this wrapper. `retry: false` keeps mutation-error tests from
+// hanging on React Query's own retry backoff.
+function wrapper({ children }: { children: ReactNode }) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+  return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+}
+
+function renderPage() {
+  return render(<AgentRegistryPage />, { wrapper });
+}
 
 const mockPush = vi.fn();
 vi.mock("next/navigation", () => ({
@@ -45,7 +61,7 @@ describe("AgentRegistryPage", () => {
     mockUseAgentRegistryQuery.mockReturnValue(baseResult({ isLoading: true, isSuccess: false, data: undefined }));
     mockUseAgentHealthSocket.mockReturnValue({ connectionState: "connecting", statusUpdates: new Map() });
 
-    render(<AgentRegistryPage />);
+    renderPage();
     expect(screen.getByText("Loading agent registry…")).toBeInTheDocument();
   });
 
@@ -53,7 +69,7 @@ describe("AgentRegistryPage", () => {
     mockUseAgentRegistryQuery.mockReturnValue(baseResult());
     mockUseAgentHealthSocket.mockReturnValue({ connectionState: "connected", statusUpdates: new Map() });
 
-    render(<AgentRegistryPage />);
+    renderPage();
     await waitFor(() => expect(screen.getAllByRole("row").length).toBeGreaterThan(1));
     expect(screen.getByText(`Showing 1–${agents.length} of ${agents.length} agents`)).toBeInTheDocument();
   });
@@ -62,7 +78,7 @@ describe("AgentRegistryPage", () => {
     mockUseAgentRegistryQuery.mockReturnValue(baseResult());
     mockUseAgentHealthSocket.mockReturnValue({ connectionState: "connected", statusUpdates: new Map() });
 
-    render(<AgentRegistryPage />);
+    renderPage();
     expect(screen.getByRole("link", { name: "Register New Agent" })).toHaveAttribute("href", "/agents/register");
   });
 
@@ -71,7 +87,7 @@ describe("AgentRegistryPage", () => {
     mockUseAgentRegistryQuery.mockReturnValue(baseResult({ isSuccess: false, isError: true, error, data: undefined }));
     mockUseAgentHealthSocket.mockReturnValue({ connectionState: "connected", statusUpdates: new Map() });
 
-    render(<AgentRegistryPage />);
+    renderPage();
     await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/login"));
   });
 
@@ -80,7 +96,7 @@ describe("AgentRegistryPage", () => {
     mockUseAgentRegistryQuery.mockReturnValue(baseResult({ isSuccess: false, isError: true, error, data: undefined }));
     mockUseAgentHealthSocket.mockReturnValue({ connectionState: "connected", statusUpdates: new Map() });
 
-    render(<AgentRegistryPage />);
+    renderPage();
     expect(screen.getByRole("alert")).toHaveTextContent(/don't have permission/);
   });
 
@@ -89,7 +105,7 @@ describe("AgentRegistryPage", () => {
     mockUseAgentRegistryQuery.mockReturnValue(baseResult({ isSuccess: false, isError: true, error, data: undefined }));
     mockUseAgentHealthSocket.mockReturnValue({ connectionState: "connected", statusUpdates: new Map() });
 
-    render(<AgentRegistryPage />);
+    renderPage();
     expect(screen.getByRole("alert")).toHaveTextContent(/Something went wrong/);
     const { default: userEvent } = await import("@testing-library/user-event");
     await userEvent.click(screen.getByRole("button", { name: "Retry" }));
@@ -100,7 +116,7 @@ describe("AgentRegistryPage", () => {
     mockUseAgentRegistryQuery.mockReturnValue(baseResult());
     mockUseAgentHealthSocket.mockReturnValue({ connectionState: "reconnecting", statusUpdates: new Map() });
 
-    render(<AgentRegistryPage />);
+    renderPage();
     expect(screen.getByText(/Live updates paused — reconnecting/)).toBeInTheDocument();
   });
 
@@ -108,7 +124,7 @@ describe("AgentRegistryPage", () => {
     mockUseAgentRegistryQuery.mockReturnValue(baseResult());
     mockUseAgentHealthSocket.mockReturnValue({ connectionState: "error", statusUpdates: new Map() });
 
-    render(<AgentRegistryPage />);
+    renderPage();
     expect(screen.getByText(/Live status updates are currently unavailable/)).toBeInTheDocument();
   });
 
@@ -116,7 +132,7 @@ describe("AgentRegistryPage", () => {
     mockUseAgentRegistryQuery.mockReturnValue(baseResult({ data: { data: [], pagination: { page: 1, pageSize: 25, total: 0, totalPages: 0 } } }));
     mockUseAgentHealthSocket.mockReturnValue({ connectionState: "connected", statusUpdates: new Map() });
 
-    render(<AgentRegistryPage />);
+    renderPage();
     expect(screen.getByRole("link", { name: "Register your first agent" })).toBeInTheDocument();
   });
 
@@ -128,7 +144,7 @@ describe("AgentRegistryPage", () => {
       statusUpdates: new Map([[updatedAgent.id, { status: "decommissioned", lastSeen: "2026-08-20T13:00:00.000Z" }]]),
     });
 
-    render(<AgentRegistryPage />);
+    renderPage();
     await waitFor(() => expect(screen.getAllByText("Decommissioned").length).toBeGreaterThan(0));
   });
 
@@ -136,7 +152,7 @@ describe("AgentRegistryPage", () => {
     mockUseAgentRegistryQuery.mockReturnValue(baseResult());
     mockUseAgentHealthSocket.mockReturnValue({ connectionState: "connected", statusUpdates: new Map() });
 
-    const { container } = render(<AgentRegistryPage />);
+    const { container } = renderPage();
     await waitFor(() => expect(screen.getAllByRole("row").length).toBeGreaterThan(1));
     await expectNoA11yViolations(container);
   });
@@ -145,7 +161,7 @@ describe("AgentRegistryPage", () => {
     mockUseAgentRegistryQuery.mockReturnValue(baseResult({ data: { data: [], pagination: { page: 1, pageSize: 25, total: 0, totalPages: 0 } } }));
     mockUseAgentHealthSocket.mockReturnValue({ connectionState: "connected", statusUpdates: new Map() });
 
-    const { container } = render(<AgentRegistryPage />);
+    const { container } = renderPage();
     await waitFor(() => expect(screen.getByRole("link", { name: "Register your first agent" })).toBeInTheDocument());
     await expectNoA11yViolations(container);
   });
@@ -155,7 +171,7 @@ describe("AgentRegistryPage", () => {
     mockUseAgentRegistryQuery.mockReturnValue(baseResult({ isSuccess: false, isError: true, error, data: undefined }));
     mockUseAgentHealthSocket.mockReturnValue({ connectionState: "connected", statusUpdates: new Map() });
 
-    const { container } = render(<AgentRegistryPage />);
+    const { container } = renderPage();
     await waitFor(() => expect(screen.getByRole("alert")).toBeInTheDocument());
     await expectNoA11yViolations(container);
   });
@@ -164,7 +180,7 @@ describe("AgentRegistryPage", () => {
     mockUseAgentRegistryQuery.mockReturnValue(baseResult({ isLoading: true, isSuccess: false, data: undefined }));
     mockUseAgentHealthSocket.mockReturnValue({ connectionState: "connecting", statusUpdates: new Map() });
 
-    const { container } = render(<AgentRegistryPage />);
+    const { container } = renderPage();
     await waitFor(() => expect(screen.getByRole("status")).toBeInTheDocument());
     await expectNoA11yViolations(container);
   });

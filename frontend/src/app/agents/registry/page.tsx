@@ -7,10 +7,16 @@ import { AgentRegistryBulkToolbar } from "@/components/agents/agent-registry-bul
 import { AgentRegistryFilterBar } from "@/components/agents/agent-registry-filter-bar";
 import { AgentRegistryPaginationBar } from "@/components/agents/agent-registry-pagination";
 import { AgentRegistryTable } from "@/components/agents/agent-registry-table";
+import { BulkConfirmationDialog } from "@/components/agents/bulk-confirmation-dialog";
+import { BulkResultsDialog } from "@/components/agents/bulk-results-dialog";
+import { LifecycleConfirmationDialog } from "@/components/agents/lifecycle-confirmation-dialog";
 import { Button } from "@/components/ui/button";
 import { useAgentHealthSocket } from "@/hooks/useAgentHealthSocket";
 import { useAgentRegistryQuery } from "@/hooks/useAgentRegistryQuery";
-import type { AgentRegistryEntry, AgentRegistryFilters, AgentRegistryPageSize, AgentRegistrySort } from "@/types/dashboard";
+import { BulkLifecycleError, useBulkLifecycleMutation } from "@/hooks/useBulkLifecycleMutation";
+import { LifecycleTransitionError, useLifecycleTransitionMutation } from "@/hooks/useLifecycleTransitionMutation";
+import type { LifecycleAction } from "@/lib/agent-lifecycle-state-machine";
+import type { AgentRegistryEntry, AgentRegistryFilters, AgentRegistryPageSize, AgentRegistrySort, BulkLifecycleResponse } from "@/types/dashboard";
 
 const DEFAULT_SORT: AgentRegistrySort = { sortBy: "name", sortOrder: "asc" };
 const DEFAULT_PAGE_SIZE: AgentRegistryPageSize = 25;
@@ -34,9 +40,17 @@ export default function AgentRegistryPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<AgentRegistryPageSize>(DEFAULT_PAGE_SIZE);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [transitioningIds, setTransitioningIds] = useState<Set<string>>(new Set());
+  const [pendingAction, setPendingAction] = useState<{ agent: AgentRegistryEntry; action: LifecycleAction } | null>(null);
+  const [pendingBulkAction, setPendingBulkAction] = useState<{ agents: AgentRegistryEntry[]; action: LifecycleAction } | null>(null);
+  const [bulkResults, setBulkResults] = useState<{ agentNames: Map<string, string>; response: BulkLifecycleResponse } | null>(null);
+  const [lastBulkAction, setLastBulkAction] = useState<LifecycleAction | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const query = useAgentRegistryQuery(filters, sort, page, pageSize);
   const { connectionState, statusUpdates } = useAgentHealthSocket();
+  const lifecycleTransition = useLifecycleTransitionMutation();
+  const bulkLifecycle = useBulkLifecycleMutation();
 
   // AC: API 401 responses redirect to the login page.
   useEffect(() => {
@@ -102,6 +116,101 @@ export default function AgentRegistryPage() {
     });
   }
 
+  function handleSelectAction(agent: AgentRegistryEntry, action: LifecycleAction) {
+    setPendingAction({ agent, action });
+  }
+
+  function handleConfirmAction() {
+    if (!pendingAction) return;
+    const { agent, action } = pendingAction;
+    setActionError(null);
+    setTransitioningIds((prev) => new Set(prev).add(agent.id));
+    lifecycleTransition.mutate(
+      { agentId: agent.id, targetStatus: action.targetStatus },
+      {
+        onError: (err) => {
+          // error_handling: 403 -> permission message; 409 -> the agent's
+          // status changed underneath us, refresh from the server; anything
+          // else -> the mutation's own message with a retry available via
+          // reopening the action menu.
+          if (err instanceof LifecycleTransitionError && err.status === 403) {
+            setActionError("You don't have permission to change this agent's lifecycle status. Contact your administrator.");
+          } else if (err instanceof LifecycleTransitionError && err.status === 409) {
+            setActionError("Agent status has changed. Please review and try again.");
+            void query.refetch();
+          } else {
+            setActionError(err instanceof Error ? err.message : "Failed to transition agent.");
+          }
+        },
+        onSettled: () => {
+          setTransitioningIds((prev) => {
+            const next = new Set(prev);
+            next.delete(agent.id);
+            return next;
+          });
+          setPendingAction(null);
+        },
+      },
+    );
+  }
+
+  function handleBulkAction(action: LifecycleAction) {
+    const agents = mergedAgents.filter((a) => selectedIds.has(a.id));
+    setPendingBulkAction({ agents, action });
+  }
+
+  function runBulkTransition(agents: Array<{ id: string; name: string }>, action: LifecycleAction) {
+    const agentNames = new Map(agents.map((a) => [a.id, a.name]));
+    setActionError(null);
+    setLastBulkAction(action);
+    setTransitioningIds((prev) => {
+      const next = new Set(prev);
+      for (const a of agents) next.add(a.id);
+      return next;
+    });
+    bulkLifecycle.mutate(
+      { agentIds: agents.map((a) => a.id), targetStatus: action.targetStatus },
+      {
+        onSuccess: (response) => {
+          setBulkResults({ agentNames, response });
+        },
+        onError: (err) => {
+          if (err instanceof BulkLifecycleError && err.status === 403) {
+            setActionError("You don't have permission to change these agents' lifecycle status. Contact your administrator.");
+          } else {
+            setActionError(err instanceof Error ? err.message : "Bulk lifecycle operation failed.");
+          }
+        },
+        onSettled: () => {
+          setTransitioningIds((prev) => {
+            const next = new Set(prev);
+            for (const a of agents) next.delete(a.id);
+            return next;
+          });
+        },
+      },
+    );
+  }
+
+  function handleConfirmBulkAction() {
+    if (!pendingBulkAction) return;
+    const { agents, action } = pendingBulkAction;
+    runBulkTransition(agents, action);
+    setPendingBulkAction(null);
+  }
+
+  // edge_case: "Bulk operation partial failure... results dialog... offer
+  // individual retry" — re-runs the same bulk action (lastBulkAction) for
+  // just the failed agent IDs, reusing their already-known names from the
+  // results dialog's own agentNames map (the API's per-agent result never
+  // carries agentName).
+  function handleRetryFailed(agentIds: string[]) {
+    if (!bulkResults || !lastBulkAction) return;
+    const agents = agentIds.map((id) => ({ id, name: bulkResults.agentNames.get(id) ?? id }));
+    setBulkResults(null);
+    runBulkTransition(agents, lastBulkAction);
+  }
+
   const is403 = isHttpError(query.error) && query.error.status === 403;
   const is500 = isHttpError(query.error) && !is403 && !(query.error.status === 401);
 
@@ -147,6 +256,15 @@ export default function AgentRegistryPage() {
         </div>
       )}
 
+      {actionError && (
+        <div role="alert" className="flex items-center justify-between gap-4 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800">
+          <span>{actionError}</span>
+          <Button type="button" variant="ghost" size="sm" onClick={() => setActionError(null)}>
+            Dismiss
+          </Button>
+        </div>
+      )}
+
       {query.isSuccess && query.data && (
         <>
           {query.data.pagination.total === 0 ? (
@@ -163,7 +281,12 @@ export default function AgentRegistryPage() {
             </div>
           ) : (
             <>
-              <AgentRegistryBulkToolbar selectedCount={selectedIds.size} onClearSelection={() => setSelectedIds(new Set())} />
+              <AgentRegistryBulkToolbar
+                selectedAgents={mergedAgents.filter((a) => selectedIds.has(a.id)).map((a) => ({ id: a.id, name: a.name, status: a.status }))}
+                onClearSelection={() => setSelectedIds(new Set())}
+                onAction={handleBulkAction}
+                isPending={bulkLifecycle.isPending}
+              />
               <AgentRegistryTable
                 agents={mergedAgents}
                 sort={sort}
@@ -171,11 +294,51 @@ export default function AgentRegistryPage() {
                 selectedIds={selectedIds}
                 onToggleRow={toggleRow}
                 onToggleAllOnPage={toggleAllOnPage}
+                onSelectAction={handleSelectAction}
+                transitioningIds={transitioningIds}
               />
               <AgentRegistryPaginationBar pagination={query.data.pagination} onPageChange={handlePageChange} onPageSizeChange={handlePageSizeChange} />
             </>
           )}
         </>
+      )}
+
+      {pendingAction && (
+        <LifecycleConfirmationDialog
+          open
+          onOpenChange={(open) => {
+            if (!open) setPendingAction(null);
+          }}
+          action={pendingAction.action}
+          agentName={pendingAction.agent.name}
+          currentStatus={pendingAction.agent.status}
+          onConfirm={handleConfirmAction}
+          isPending={lifecycleTransition.isPending}
+        />
+      )}
+
+      {pendingBulkAction && (
+        <BulkConfirmationDialog
+          open
+          onOpenChange={(open) => {
+            if (!open) setPendingBulkAction(null);
+          }}
+          action={pendingBulkAction.action}
+          agents={pendingBulkAction.agents}
+          onConfirm={handleConfirmBulkAction}
+          isPending={bulkLifecycle.isPending}
+        />
+      )}
+
+      {bulkResults && (
+        <BulkResultsDialog
+          open
+          onClose={() => setBulkResults(null)}
+          agentNames={bulkResults.agentNames}
+          results={bulkResults.response.results}
+          onRetryFailed={handleRetryFailed}
+          isRetrying={bulkLifecycle.isPending}
+        />
       )}
     </div>
   );

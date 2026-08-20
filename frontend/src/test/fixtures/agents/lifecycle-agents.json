@@ -1,0 +1,53 @@
+{
+  "description": "WO-081: one AgentRegistryEntry per lifecycle state, used by the lifecycle action-menu/confirmation-dialog/bulk-operation tests.",
+  "connecting": {
+    "id": "10000000-0000-0000-0000-000000000001",
+    "name": "connecting-bot",
+    "framework": "langchain",
+    "status": "connecting",
+    "team": null,
+    "lastSeen": "2026-08-20T10:00:00.000Z",
+    "healthScore": null,
+    "qualityScore": null
+  },
+  "active": {
+    "id": "10000000-0000-0000-0000-000000000002",
+    "name": "active-bot",
+    "framework": "langchain",
+    "status": "active",
+    "team": { "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", "name": "Support" },
+    "lastSeen": "2026-08-20T10:00:00.000Z",
+    "healthScore": null,
+    "qualityScore": null
+  },
+  "paused": {
+    "id": "10000000-0000-0000-0000-000000000003",
+    "name": "paused-bot",
+    "framework": "crewai",
+    "status": "paused",
+    "team": { "id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb", "name": "Billing" },
+    "lastSeen": "2026-08-20T10:00:00.000Z",
+    "healthScore": null,
+    "qualityScore": null
+  },
+  "retired": {
+    "id": "10000000-0000-0000-0000-000000000004",
+    "name": "retired-bot",
+    "framework": "autogen",
+    "status": "retired",
+    "team": { "id": "cccccccc-cccc-cccc-cccc-cccccccccccc", "name": "Operations" },
+    "lastSeen": "2026-08-20T10:00:00.000Z",
+    "healthScore": null,
+    "qualityScore": null
+  },
+  "decommissioned": {
+    "id": "10000000-0000-0000-0000-000000000005",
+    "name": "decommissioned-bot",
+    "framework": "generic_rest",
+    "status": "decommissioned",
+    "team": null,
+    "lastSeen": "2026-08-20T10:00:00.000Z",
+    "healthScore": null,
+    "qualityScore": null
+  }
+}

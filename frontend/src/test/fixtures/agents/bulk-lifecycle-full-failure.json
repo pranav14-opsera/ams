@@ -1,0 +1,9 @@
+{
+  "totalCount": 2,
+  "successCount": 0,
+  "failureCount": 2,
+  "results": [
+    { "agentId": "a0001aaaa-0000-0000-0000-000000000000", "status": "failed", "previousStatus": null, "newStatus": null, "warning": null, "error": "Cannot transition agent from \"retired\" to \"paused\". Valid transitions from \"retired\": decommissioned." },
+    { "agentId": "a0002aaaa-0000-0000-0000-000000000000", "status": "failed", "previousStatus": null, "newStatus": null, "warning": null, "error": "Cannot transition agent from \"retired\" to \"paused\". Valid transitions from \"retired\": decommissioned." }
+  ]
+}
