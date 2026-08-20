@@ -73,7 +73,7 @@ export class RbacGuard implements CanActivate {
     if (resourceTeamParam && isTeamScopedCaller) {
       const resourceTeamId = req.params?.[resourceTeamParam];
       if (typeof resourceTeamId === "string" && resourceTeamId) {
-        const userTeamIds = await this.teamMembershipRepository.getUserTeamIds(req.tenantId!, req.actorId!);
+        const userTeamIds = await this.teamMembershipRepository.getUserTeamIds(req.tenantId!, req.actorId!, req.tenantDbClient);
         if (!userTeamIds.includes(resourceTeamId)) {
           await this.deny(req, requiredPermission!, "cross_team_access");
         }

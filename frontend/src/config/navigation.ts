@@ -68,11 +68,21 @@ export const NAVIGATION_CONFIG: NavigationItem[] = [
     requiredPermissions: [],
     children: [
       {
+        // WO-075: this slot pre-dated the team usage dashboard's own
+        // implementation (same "placeholder href gets pointed at the
+        // real route" pattern WO-074 already used for
+        // consumption-dashboard below) — points at the real
+        // `/dashboard/usage/team` route instead of the placeholder
+        // `/analytics/team` page that never existed. requiredPermissions
+        // widened to an OR of view_org/view_team so a Platform
+        // Administrator (view_org only) sees this entry too, matching
+        // AC 1's "accessible to Team Lead (own team only) and Platform
+        // Administrator (all teams)".
         id: "team-dashboard",
         label: "Team Dashboard",
         icon: LayoutDashboard,
-        href: "/analytics/team",
-        requiredPermissions: ["credit_management:consumption:view_team"],
+        href: "/dashboard/usage/team",
+        requiredPermissions: ["credit_management:consumption:view_org", "credit_management:consumption:view_team"],
       },
       {
         id: "personal-dashboard",

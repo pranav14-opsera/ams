@@ -3,6 +3,7 @@ import { MetricsAggregatorRepository } from "../adapters/metrics/metrics-aggrega
 import { AgentStateTransitionsRepository } from "../agents/agent-state-transitions.repository";
 import { AgentsRepository } from "../agents/agents.repository";
 import { AnomalyDetectionModule } from "../anomaly-detection/anomaly-detection.module";
+import { CreditBudgetModule } from "../credits/budget/credit-budget.module";
 import { DriftDetectionModule } from "../drift-detection/drift-detection.module";
 import { PhiScrubberModule } from "../phi-scrubber/phi-scrubber.module";
 import { QualityScoreModule } from "../quality-score/quality-score.module";
@@ -24,13 +25,18 @@ import { OrgUsageDashboardController } from "./org-usage/org-usage-dashboard.con
 import { OrgUsageDashboardRepository } from "./org-usage/org-usage-dashboard.repository";
 import { OrgUsageDashboardService } from "./org-usage/org-usage-dashboard.service";
 import { OrgUsagePublisherService } from "./org-usage/org-usage-publisher.service";
+import { TeamUsageCacheService } from "./team-usage/team-usage-cache.service";
+import { TeamUsageDashboardController } from "./team-usage/team-usage-dashboard.controller";
+import { TeamUsageDashboardRepository } from "./team-usage/team-usage-dashboard.repository";
+import { TeamUsageDashboardService } from "./team-usage/team-usage-dashboard.service";
+import { TeamUsagePublisherService } from "./team-usage/team-usage-publisher.service";
 
 // AUDIT_SERVICE isn't exported from a shared module in this codebase —
 // every module that needs it re-provides its own PostgresAuditService
 // binding (see subscription.module.ts, audit-retention.module.ts, etc.).
 @Module({
-  imports: [RbacModule, PhiScrubberModule, WebsocketGatewayModule, TraceModule, AnomalyDetectionModule, QualityScoreModule, DriftDetectionModule],
-  controllers: [DashboardController, AgentHealthDetailController, OrgUsageDashboardController, OrgUsageCreditsController],
+  imports: [RbacModule, PhiScrubberModule, WebsocketGatewayModule, TraceModule, AnomalyDetectionModule, QualityScoreModule, DriftDetectionModule, CreditBudgetModule],
+  controllers: [DashboardController, AgentHealthDetailController, OrgUsageDashboardController, OrgUsageCreditsController, TeamUsageDashboardController],
   providers: [
     HealthDashboardRepository,
     HealthCacheService,
@@ -45,6 +51,12 @@ import { OrgUsagePublisherService } from "./org-usage/org-usage-publisher.servic
     OrgUsageCacheService,
     OrgUsageDashboardService,
     OrgUsagePublisherService,
+    // WO-075: team-scoped usage dashboard — new files under ./team-usage/,
+    // same "re-provide directly, no separate NestJS module" convention.
+    TeamUsageDashboardRepository,
+    TeamUsageCacheService,
+    TeamUsageDashboardService,
+    TeamUsagePublisherService,
     // WO-057: single-agent drill-down — re-provided here rather than
     // importing AgentsModule/AdaptersModule wholesale (both repositories
     // depend only on the global PG_POOL, same "just re-provide the
@@ -54,6 +66,16 @@ import { OrgUsagePublisherService } from "./org-usage/org-usage-publisher.servic
     AgentStateTransitionsRepository,
     AgentHealthDetailService,
   ],
-  exports: [HealthDashboardRepository, DashboardService, HealthMetricsPublisherService, OrgUsageDashboardRepository, OrgUsageDashboardService, OrgUsagePublisherService],
+  exports: [
+    HealthDashboardRepository,
+    DashboardService,
+    HealthMetricsPublisherService,
+    OrgUsageDashboardRepository,
+    OrgUsageDashboardService,
+    OrgUsagePublisherService,
+    TeamUsageDashboardRepository,
+    TeamUsageDashboardService,
+    TeamUsagePublisherService,
+  ],
 })
 export class DashboardModule {}

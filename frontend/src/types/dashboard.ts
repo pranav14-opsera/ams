@@ -144,3 +144,76 @@ export interface OrgUsageUpdateMessage {
   burnRate: BurnRateSummary;
   latestConsumption: ConsumptionTrendPoint | null;
 }
+
+// WO-075: team-scoped usage analytics dashboard.
+
+export const TEAM_USAGE_PERIODS = ["7d", "30d", "60d", "90d"] as const;
+export type TeamUsagePeriod = (typeof TEAM_USAGE_PERIODS)[number];
+
+export const TEAM_USAGE_GRANULARITIES = ["daily", "weekly"] as const;
+export type TeamUsageGranularity = (typeof TEAM_USAGE_GRANULARITIES)[number];
+
+/** Backend wire vocabulary (TeamUsageFramework) — note "rest", not this codebase's usual "generic_rest" DB value; the backend translates at its own repository boundary. */
+export const TEAM_USAGE_FRAMEWORKS = ["langchain", "crewai", "autogen", "rest"] as const;
+export type TeamUsageFramework = (typeof TEAM_USAGE_FRAMEWORKS)[number];
+
+export interface TeamRef {
+  id: string;
+  name: string;
+}
+
+export interface TeamBalanceSummary {
+  allocated: number;
+  consumed: number;
+  remaining: number;
+  utilizationPct: number | null;
+}
+
+export interface TeamBurnRateSummary {
+  creditsPerDay: number;
+}
+
+export interface TeamConsumptionTrendPoint {
+  date: string;
+  credits: number;
+}
+
+export interface TeamAgentComparisonEntry {
+  agentId: string;
+  agentName: string;
+  framework: string;
+  creditsConsumed: number;
+  isAboveThreshold: boolean;
+}
+
+export interface TeamUsageFilters {
+  agentIds?: string[];
+  actionTypes?: string[];
+  frameworks?: TeamUsageFramework[];
+}
+
+export interface TeamUsageFiltersApplied {
+  period: TeamUsagePeriod;
+  granularity: TeamUsageGranularity;
+  agents?: string[];
+  actionTypes?: string[];
+  frameworks?: TeamUsageFramework[];
+}
+
+export interface TeamUsageSummary {
+  team: TeamRef;
+  balance: TeamBalanceSummary;
+  burnRate: TeamBurnRateSummary;
+  agentCount: number;
+  consumptionTrend: TeamConsumptionTrendPoint[];
+  agentComparison: TeamAgentComparisonEntry[];
+  filtersApplied: TeamUsageFiltersApplied;
+  servedFromCache: boolean;
+}
+
+export interface TeamUsageUpdateMessage {
+  teamId: string;
+  balance: TeamBalanceSummary;
+  burnRate: TeamBurnRateSummary;
+  latestConsumption: TeamConsumptionTrendPoint | null;
+}
