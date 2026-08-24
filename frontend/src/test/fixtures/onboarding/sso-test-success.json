@@ -1,0 +1,10 @@
+{
+  "success": true,
+  "diagnostics": {
+    "metadataFetch": "pass",
+    "certificateValidation": "pass",
+    "assertionParsing": "pass",
+    "groupMapping": "pass"
+  },
+  "errorMessage": null
+}

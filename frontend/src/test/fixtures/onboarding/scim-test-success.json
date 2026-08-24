@@ -1,0 +1,9 @@
+{
+  "success": true,
+  "diagnostics": {
+    "tokenActive": "pass",
+    "filterParsing": "pass",
+    "endpointReachable": "pass"
+  },
+  "errorMessage": null
+}

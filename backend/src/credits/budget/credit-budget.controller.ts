@@ -6,6 +6,7 @@ import { RequirePermission } from "../../rbac/require-permission.decorator";
 import { ResourceTeamParam } from "../../rbac/resource-team-param.decorator";
 import { AllocateBudgetDto } from "./dto/allocate-budget.dto";
 import { BudgetPeriodQueryDto } from "./dto/budget-period-query.dto";
+import { UpsertPoolDto } from "./dto/upsert-pool.dto";
 import { CreditBudgetService } from "./credit-budget.service";
 
 function currentPeriod(query: BudgetPeriodQueryDto, now: Date = new Date()): { month: number; year: number } {
@@ -15,6 +16,17 @@ function currentPeriod(query: BudgetPeriodQueryDto, now: Date = new Date()): { m
 @Controller("api/v1/credits")
 export class CreditBudgetController {
   constructor(private readonly service: CreditBudgetService) {}
+
+  // WO-082 Step 5: provisions the org's own credit pool for a period —
+  // see CreditBudgetService.upsertPool's own comment for why this route
+  // exists (allocate() requires a pool to already exist; onboarding is
+  // the first caller with no separate billing process to have created one).
+  @Post("pool")
+  @HttpCode(HttpStatus.CREATED)
+  @RequirePermission(PermissionName.CREDIT_ALLOCATION_MANAGE)
+  async upsertPool(@Body() dto: UpsertPoolDto, @Req() req: Request) {
+    return this.service.upsertPool(req.tenantId!, req.actorId ?? null, dto.effectiveMonth, dto.effectiveYear, dto.totalCredits);
+  }
 
   // AC: only Finance Manager and Platform Administrator can allocate.
   @Post("allocate")

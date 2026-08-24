@@ -1,0 +1,9 @@
+{
+  "checks": [
+    { "name": "sso_login", "status": "pass", "message": "OIDC configuration is structurally valid." },
+    { "name": "agent_telemetry", "status": "pass", "message": "At least one registered agent is Active." },
+    { "name": "rbac_policies", "status": "pass", "message": "2 IdP group-to-role mapping(s) applied." },
+    { "name": "credit_budget", "status": "pass", "message": "A credit budget is allocated for the current period." }
+  ],
+  "allPassed": true
+}

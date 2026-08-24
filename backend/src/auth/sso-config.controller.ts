@@ -39,7 +39,10 @@ export class SsoConfigController {
       });
       await this.ssoConfigRepository.updateCachedSamlCert(this.pool, tenantId, certPem);
       await this.recordConfigChange(tenantId, req.actorId ?? null, "saml");
-      return { ...this.omitSecret(config), samlCertPem: certPem };
+      // AC (Step 2): "display the generated ACS URL and Entity ID for the
+      // customer to configure in their IdP" — this IS the real callback
+      // route AuthController.samlCallback listens on, not a placeholder.
+      return { ...this.omitSecret(config), samlCertPem: certPem, acsUrl: this.callbackUrl(req, "saml/callback"), entityId: config.samlEntityId ?? "ams-platform" };
     }
 
     if (!dto.oidcClientSecret) {
@@ -54,7 +57,9 @@ export class SsoConfigController {
       oidcClientSecret: encryptedSecret,
     });
     await this.recordConfigChange(tenantId, req.actorId ?? null, "oidc");
-    return this.omitSecret(config);
+    // AC (Step 2): "display the generated Redirect URI" — the real
+    // callback route AuthController.oidcCallback listens on.
+    return { ...this.omitSecret(config), redirectUri: this.callbackUrl(req, "oidc/callback") };
   }
 
   @Get("config")
@@ -89,5 +94,10 @@ export class SsoConfigController {
     if (req.tenantId !== tenantId) {
       throw new ForbiddenException("Cannot manage SSO configuration for another tenant.");
     }
+  }
+
+  /** Same construction as AuthController's own callback routes — this literally IS the URL those routes listen on. */
+  private callbackUrl(req: Request, path: string): string {
+    return `${req.protocol}://${req.get("host")}/api/v1/auth/${path}`;
   }
 }
